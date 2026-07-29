@@ -13,13 +13,23 @@ import {
 const FIREBASE_STORAGE_AVAILABLE_KEY = "firebase-auth-storage-check";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCss0GMCNpkVvM6ca6gOIVbbmUfKpkPGc0",
-  authDomain: "batibot-app-e3cc9.firebaseapp.com",
-  projectId: "batibot-app-e3cc9",
-  storageBucket: "batibot-app-e3cc9.firebasestorage.app",
-  messagingSenderId: "563453830210",
-  appId: "1:563453830210:web:e14d0564cb71ca2d9339db",
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
+
+const missingFirebaseConfig = Object.entries(firebaseConfig)
+  .filter(([, value]) => !value)
+  .map(([key]) => key);
+
+if (missingFirebaseConfig.length > 0) {
+  throw new Error(
+    `Missing Firebase environment configuration: ${missingFirebaseConfig.join(", ")}. Copy .env.example to .env and fill in the Firebase web app values.`,
+  );
+}
 
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 

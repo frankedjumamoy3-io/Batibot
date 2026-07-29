@@ -22,7 +22,7 @@ Install function dependencies:
 
 ```bash
 cd firebase/functions
-npm install
+npm ci
 ```
 
 Set the Gemini secret:
@@ -32,8 +32,8 @@ firebase functions:secrets:set GEMINI_API_KEY
 ```
 
 Optionally set the one approved admin email for the function environment by
-creating `firebase/functions/.env`. If you skip this, it defaults to
-`admin@batibot.app`.
+copying `firebase/functions/.env.example` to `firebase/functions/.env`. If you
+skip this, it defaults to `admin@batibot.app`.
 
 ```env
 BATIBOT_ADMIN_EMAIL=admin@batibot.app

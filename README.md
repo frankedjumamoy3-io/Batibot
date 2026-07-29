@@ -300,10 +300,41 @@ batibot/
 
 ## Local Development
 
-Install dependencies:
+### New Laptop Setup
 
 ```bash
-npm install
+git clone <your-repository-url>
+cd batibot
+```
+
+Use Node 20 (the same version required by Firebase Functions), then install the
+root app and Functions dependencies from their committed lockfiles:
+
+```bash
+npm ci
+npm --prefix firebase/functions ci
+```
+
+Create the app environment file before starting Expo:
+
+```bash
+copy .env.example .env
+```
+
+Fill the six `EXPO_PUBLIC_FIREBASE_*` values in `.env` from Firebase Console:
+**Project settings → General → Your apps → Web app**. The values are required
+for Firebase Auth, Firestore, and Storage to initialize. Restart Expo after
+changing `.env`.
+
+For Firebase Functions, deploy-time Gemini access is stored in Firebase Secret
+Manager, not in an env file. On a new machine, authenticate with the Firebase
+CLI, select the project in `.firebaserc`, then verify or set the secret:
+
+```bash
+npx firebase-tools login
+npx firebase-tools functions:secrets:access GEMINI_API_KEY
+# Only if it is missing or must be changed:
+npx firebase-tools functions:secrets:set GEMINI_API_KEY
 ```
 
 Start the Expo development server:
