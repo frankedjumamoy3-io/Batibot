@@ -1,0 +1,163 @@
+import type { PreschoolNumberTopicConfig, PreschoolNumberTopicId, PreschoolNumberWorldConfig } from "./types";
+
+export const PRESCHOOL_NUMBER_WORLD_ID = "preschool-number-village";
+
+export const NUMBER_WORDS: Record<number, string> = {
+  1: "One",
+  2: "Two",
+  3: "Three",
+  4: "Four",
+  5: "Five",
+  6: "Six",
+  7: "Seven",
+  8: "Eight",
+  9: "Nine",
+  10: "Ten",
+};
+
+export const PRESCHOOL_NUMBER_TOPIC_CONFIGS: PreschoolNumberTopicConfig[] = [
+  {
+    assetId: "number-1",
+    title: "Number 1",
+    emoji: "1",
+    category: "numeric",
+    subcategory: "counting",
+    interactionTypes: ["Counting Activity", "Listening Activity", "Drag and Drop Activity"],
+    example: "This is number one.",
+    quantity: 1,
+  },
+  {
+    assetId: "number-2",
+    title: "Number 2",
+    emoji: "2",
+    category: "numeric",
+    subcategory: "counting",
+    interactionTypes: ["Counting Activity", "Listening Activity", "Drag and Drop Activity"],
+    example: "This is number two.",
+    quantity: 2,
+  },
+  {
+    assetId: "number-3",
+    title: "Number 3",
+    emoji: "3",
+    category: "numeric",
+    subcategory: "counting",
+    interactionTypes: ["Counting Activity", "Listening Activity", "Drag and Drop Activity"],
+    example: "This is number three.",
+    quantity: 3,
+  },
+  {
+    assetId: "number-4",
+    title: "Number 4",
+    emoji: "4",
+    category: "numeric",
+    subcategory: "counting",
+    interactionTypes: ["Counting Activity", "Listening Activity", "Drag and Drop Activity"],
+    example: "This is number four.",
+    quantity: 4,
+  },
+  {
+    assetId: "number-5",
+    title: "Number 5",
+    emoji: "5",
+    category: "numeric",
+    subcategory: "counting",
+    interactionTypes: ["Counting Activity", "Listening Activity", "Drag and Drop Activity"],
+    example: "This is number five.",
+    quantity: 5,
+  },
+  {
+    assetId: "number-6",
+    title: "Number 6",
+    emoji: "6",
+    category: "numeric",
+    subcategory: "counting",
+    interactionTypes: ["Counting Activity", "Listening Activity", "Drag and Drop Activity"],
+    example: "This is number six.",
+    quantity: 6,
+  },
+  {
+    assetId: "number-7",
+    title: "Number 7",
+    emoji: "7",
+    category: "numeric",
+    subcategory: "counting",
+    interactionTypes: ["Counting Activity", "Listening Activity", "Drag and Drop Activity"],
+    example: "This is number seven.",
+    quantity: 7,
+  },
+  {
+    assetId: "number-8",
+    title: "Number 8",
+    emoji: "8",
+    category: "numeric",
+    subcategory: "counting",
+    interactionTypes: ["Counting Activity", "Listening Activity", "Drag and Drop Activity"],
+    example: "This is number eight.",
+    quantity: 8,
+  },
+  {
+    assetId: "number-9",
+    title: "Number 9",
+    emoji: "9",
+    category: "numeric",
+    subcategory: "counting",
+    interactionTypes: ["Counting Activity", "Listening Activity", "Drag and Drop Activity"],
+    example: "This is number nine.",
+    quantity: 9,
+  },
+  {
+    assetId: "number-10",
+    title: "Number 10",
+    emoji: "10",
+    category: "numeric",
+    subcategory: "counting",
+    interactionTypes: ["Counting Activity", "Listening Activity", "Drag and Drop Activity"],
+    example: "This is number ten.",
+    quantity: 10,
+  },
+  {
+    assetId: "number-challenge",
+    title: "Number Challenge",
+    emoji: "BADGE",
+    category: "numeric",
+    subcategory: "counting",
+    interactionTypes: ["Counting Activity", "Drag and Drop Activity", "Mastery Challenge"],
+    example: "Use number symbols one to ten.",
+  },
+];
+
+export const PRESCHOOL_NUMBER_WORLD_CONFIG: PreschoolNumberWorldConfig = {
+  id: PRESCHOOL_NUMBER_WORLD_ID,
+  title: "Number Village",
+  emoji: "123",
+  accentColor: "#FF850F",
+  description:
+    "A numeral village for seeing, tapping, matching, and building number symbols after children have counted real groups.",
+  activities: [
+    "See the numeral",
+    "Tap the numeral",
+    "Match numeral to group",
+    "Build the numeral",
+    "Unlock number symbols",
+  ],
+  topics: PRESCHOOL_NUMBER_TOPIC_CONFIGS,
+};
+
+export const PRESCHOOL_NUMBER_TOPIC_ORDER = PRESCHOOL_NUMBER_TOPIC_CONFIGS.map(
+  (topic) => topic.title,
+);
+
+export const SCOPED_NUMBER_TOPIC_IDS = new Set<PreschoolNumberTopicId>([
+  "number-1",
+  "number-2",
+  "number-3",
+  "number-4",
+  "number-5",
+  "number-6",
+  "number-7",
+  "number-8",
+  "number-9",
+  "number-10",
+  "number-challenge",
+]);

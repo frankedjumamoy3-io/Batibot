@@ -1,0 +1,81 @@
+export {
+  CURRICULUM_QUIZ_LEVELS,
+  QUIZ_CATEGORY_META,
+  QUIZ_PRESETS,
+} from "@/src/data/quiz/presets";
+export {
+  buildHelperQuiz,
+  getHelperQuizId,
+  getSourceQuizIdFromHelperQuizId,
+  isHelperQuizId,
+} from "@/src/data/quiz/helper-quizzes";
+export {
+  buildQuizPracticeRecommendation,
+  toPersistedQuizPracticeRecommendation,
+} from "@/src/data/quiz/recommendations";
+export {
+  evaluateQuizRequirements,
+  evaluateLevelRequirements,
+  evaluateUnlockRequirements,
+  calculateMasteryByCategory,
+  checkLevelUnlocks,
+  getCompletedQuizzes,
+  getLevelDefinition,
+  getLevelUnlockProgress,
+  getLevelTitle,
+  getQuizzesByCategory,
+  getQuizzesByLevel,
+  getRequirementChecklist,
+  getSpecificWordViewProgress,
+  getUnlockProgress,
+  getUnlockedQuizIds,
+  getViewedSpecificWords,
+  getViewedWords,
+  hasViewedSpecificWords,
+  isLevelUnlocked,
+  isQuizUnlocked,
+  unlockEligibleLevels,
+  unlockEligibleQuizzes,
+} from "@/src/data/quiz/unlock";
+export {
+  ACHIEVEMENT_DEFINITIONS,
+  BADGE_DEFINITIONS,
+  createUnlockNotification,
+  awardAchievements,
+  awardBadges,
+  createNotification,
+  evaluateAchievementRequirements,
+  evaluateBadgeRequirements,
+  getAwardDefinition,
+  getAwardProgress,
+  getLevelUnlockEvents,
+  getMasteryMilestoneEvents,
+  getStreakMilestoneEvents,
+  preventDuplicateNotification,
+  unlockEligibleAchievements,
+  unlockEligibleBadges,
+} from "@/src/data/quiz/awards";
+export type {
+  CurriculumQuizLevel,
+  LearningNotification,
+  LearningNotificationType,
+  QuizAnswer,
+  QuizCategory,
+  QuizCategoryMeta,
+  QuizDifficulty,
+  QuizPreset,
+  QuizQuestion,
+  QuizQuestionType,
+  QuizResultSummary,
+  QuizRewards,
+  QuizScoreRecord,
+  QuizType,
+  SpecificWordProgressItem,
+  UnlockRequirements,
+} from "@/src/data/quiz/types";
+export type { AwardDefinition } from "@/src/data/quiz/awards";
+export type {
+  PersistedQuizPracticeRecommendation,
+  QuizPracticeRecommendation,
+  QuizRecommendationResponse,
+} from "@/src/data/quiz/recommendations";

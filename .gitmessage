@@ -1,0 +1,16 @@
+# <type>(<scope>): <short summary>
+#
+# Examples:
+# feat(counting): Implement Counting Forest PLAY stage
+# fix(audio): Prevent duplicate speech
+# docs(git): Document recovery workflow
+#
+# Types:
+# feat, fix, refactor, style, docs, test, chore, hotfix
+#
+# Checklist before commit:
+# - TypeScript passes
+# - ESLint passes
+# - Active-learning validator passes
+# - No missing assets or unresolved imports
+# - No placeholder/debug/TODO code in learner surfaces

@@ -1,0 +1,15 @@
+export const VOCABULARY_DETAIL_COPY = {
+  curriculumLabel: "Learning info",
+  emptyText: "Please return to the vocabulary list and choose another word.",
+  emptyTitle: "Word not found",
+  exampleLabel: "Example",
+  meaningLabel: "Meaning",
+  pictureClueLabel: "Try it",
+  listenLabel: "Hear pronunciation",
+  listeningLabel: "Playing pronunciation...",
+  nextWordLabel: "Next word",
+  previousWordLabel: "Previous word",
+  rewardLabel: "+8 XP word explored",
+  sayItLabel: "Say it",
+  subcategoryLabel: "Word group",
+} as const;

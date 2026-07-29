@@ -1,0 +1,85 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isApprovedAdmin() {
+      return isSignedIn()
+        && (
+          request.auth.token.email == "admin@batibot.app"
+          || firestore.get(
+            /databases/(default)/documents/users/$(request.auth.uid)
+          ).data.role == "admin"
+        );
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isSupportedProfileImage() {
+      return request.resource != null
+        && request.resource.size <= 5 * 1024 * 1024
+        && request.resource.contentType.matches("image/(jpeg|jpg|png|webp)");
+    }
+
+    function isSupportedCurriculumAsset() {
+      return request.resource != null
+        && request.resource.size <= 10 * 1024 * 1024
+        && request.resource.contentType.matches("image/(jpeg|jpg|png|webp)");
+    }
+
+    function isSupportedAdminAsset() {
+      return request.resource != null
+        && (
+          (request.resource.size <= 5 * 1024 * 1024
+            && request.resource.contentType.matches("image/(jpeg|jpg|png|webp)"))
+          || (request.resource.size <= 10 * 1024 * 1024
+            && request.resource.contentType.matches("audio/(mpeg|mp4|x-m4a|wav|wave)"))
+        );
+    }
+
+    match /profile-images/{userId}/{fileName} {
+      allow read: if isOwner(userId) || isApprovedAdmin();
+      allow create, update: if isOwner(userId) && isSupportedProfileImage();
+      allow delete: if isOwner(userId) || isApprovedAdmin();
+    }
+
+    match /learnerProfilePhotos/{profileId}/{fileName} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn()
+        && firestore.get(
+          /databases/(default)/documents/learnerProfiles/$(profileId)
+        ).data.ownerUid == request.auth.uid
+        && isSupportedProfileImage();
+      allow delete: if isSignedIn()
+        && (
+          firestore.get(
+            /databases/(default)/documents/learnerProfiles/$(profileId)
+          ).data.ownerUid == request.auth.uid
+          || isApprovedAdmin()
+        );
+    }
+
+    match /curriculum-assets/{allPaths=**} {
+      allow read: if isSignedIn();
+      allow create, update: if isApprovedAdmin()
+        && isSupportedCurriculumAsset();
+      allow delete: if isApprovedAdmin();
+    }
+
+    match /admin-assets/{allPaths=**} {
+      allow read: if isApprovedAdmin();
+      allow create, update: if isApprovedAdmin()
+        && isSupportedAdminAsset();
+      allow delete: if isApprovedAdmin();
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

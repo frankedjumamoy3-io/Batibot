@@ -1,0 +1,27 @@
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+[mcp_servers.filesystem]
+command = "npx"
+args = [
+  "-y",
+  "@modelcontextprotocol/server-filesystem",
+  "C:/Users/iansa/batibot"
+]
+
+[mcp_servers.browser]
+command = "npx"
+args = [
+  "-y",
+  "@playwright/mcp"
+]
+
+[mcp_servers.browser.tools.browser_click]
+approval_mode = "approve"
+
+[mcp_servers.shell]
+command = "npx"
+args = [
+  "-y",
+  "@mako10k/mcp-shell-server"
+]

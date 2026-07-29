@@ -1,0 +1,81 @@
+import { StyleSheet } from "react-native";
+
+export const authScreenShellStyles = StyleSheet.create({
+  badge: {
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(255,255,255,0.16)",
+    borderRadius: 999,
+    marginBottom: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  badgeText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+  },
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 32,
+    elevation: 4,
+    padding: 24,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+  },
+  content: {
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    paddingBottom: 36,
+    paddingVertical: 28,
+  },
+  glowLarge: {
+    backgroundColor: "rgba(255,255,255,0.10)",
+    borderRadius: 65,
+    height: 130,
+    position: "absolute",
+    right: -6,
+    top: -18,
+    width: 130,
+  },
+  glowSmall: {
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 48,
+    bottom: -22,
+    height: 96,
+    left: -12,
+    position: "absolute",
+    width: 96,
+  },
+  footer: {
+    marginTop: 14,
+    paddingHorizontal: 4,
+  },
+  hero: {
+    backgroundColor: "#7C2EF2",
+    borderRadius: 34,
+    marginBottom: 18,
+    overflow: "hidden",
+    paddingHorizontal: 22,
+    paddingVertical: 26,
+  },
+  root: {
+    backgroundColor: "#D7DDFF",
+    flex: 1,
+  },
+  subtitle: {
+    color: "#F1E7FF",
+    fontSize: 18,
+    lineHeight: 25,
+  },
+  title: {
+    color: "#FFFFFF",
+    fontSize: 42,
+    fontWeight: "900",
+    marginBottom: 8,
+  },
+});

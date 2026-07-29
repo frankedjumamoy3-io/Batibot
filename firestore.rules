@@ -1,0 +1,275 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function hasAdminRole() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+    }
+
+    function isApprovedAdmin() {
+      return isSignedIn()
+        && (
+          request.auth.token.email == "admin@batibot.app"
+          || hasAdminRole()
+        );
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function hasAllowedUserRole() {
+      return !("role" in request.resource.data)
+        || request.resource.data.role == "learner"
+        || ((request.resource.data.role == "admin" || request.resource.data.role == "tester")
+          && isApprovedAdmin());
+    }
+
+    function hasAllowedTestAccessFlagsOnCreate() {
+      return !("isTestAccount" in request.resource.data)
+        && !("unlockAllQuizzes" in request.resource.data)
+        && !("allowedPreviewLevels" in request.resource.data)
+        && !("currentPreviewLevel" in request.resource.data)
+        && !("unlockMode" in request.resource.data)
+        && !("excludeFromAnalytics" in request.resource.data)
+        && !("excludeFromLeaderboard" in request.resource.data);
+    }
+
+    function preservesTestAccessFlags() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny([
+          "isTestAccount",
+          "unlockAllQuizzes",
+          "allowedPreviewLevels",
+          "currentPreviewLevel",
+          "unlockMode",
+          "excludeFromAnalytics",
+          "excludeFromLeaderboard"
+        ]);
+    }
+
+    function isOwnQuizAttempt() {
+      return isSignedIn()
+        && request.resource.data.learnerUid == request.auth.uid;
+    }
+
+    function isSafeQuizAttemptAnalytics() {
+      return !("isTestAccount" in request.resource.data)
+        || request.resource.data.isTestAccount != true
+        || (
+          request.resource.data.excludeFromAnalytics == true
+          && request.resource.data.excludeFromLeaderboard == true
+        );
+    }
+
+    function canReadPublishedResource() {
+      return isSignedIn()
+        && (
+          isApprovedAdmin()
+          || !("isPublished" in resource.data)
+          || resource.data.isPublished == true
+          || resource.data.status == "published"
+        );
+    }
+
+    function hasProgressOwner(userId) {
+      return !("learnerUid" in request.resource.data)
+        || request.resource.data.learnerUid == userId;
+    }
+
+    function isSanitizedLeaderboardEntry(entry) {
+      return entry.keys().hasOnly([
+          "avatar",
+          "curriculumLevel",
+          "displayName",
+          "excludeFromAnalytics",
+          "excludeFromLeaderboard",
+          "gradeLevel",
+          "isTestAccount",
+          "nickname",
+          "stars",
+          "uid",
+          "updatedAt",
+          "xp"
+        ])
+        && !("email" in entry)
+        && !("learnerEmail" in entry);
+    }
+
+    function isOwnSanitizedLeaderboardEntry(entryId) {
+      return isSignedIn()
+        && request.auth.uid == entryId
+        && request.resource.data.uid == request.auth.uid
+        && isSanitizedLeaderboardEntry(request.resource.data)
+        && (!("isTestAccount" in request.resource.data)
+          || request.resource.data.isTestAccount != true)
+        && (!("excludeFromAnalytics" in request.resource.data)
+          || request.resource.data.excludeFromAnalytics != true)
+        && (!("excludeFromLeaderboard" in request.resource.data)
+          || request.resource.data.excludeFromLeaderboard != true);
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isApprovedAdmin();
+      allow create: if isOwner(userId)
+        && hasAllowedUserRole()
+        && hasAllowedTestAccessFlagsOnCreate();
+      allow update: if isOwner(userId)
+        && hasAllowedUserRole()
+        && preservesTestAccessFlags();
+      allow delete: if isApprovedAdmin();
+
+      match /progress/{progressId} {
+        allow read: if isOwner(userId) || isApprovedAdmin();
+        allow create, update: if isOwner(userId)
+          && hasProgressOwner(userId);
+        allow delete: if isApprovedAdmin();
+      }
+
+      match /learningProgress/{progressId} {
+        allow read: if isOwner(userId) || isApprovedAdmin();
+        allow create, update: if isOwner(userId);
+        allow delete: if isApprovedAdmin();
+      }
+    }
+
+    match /learnerProfiles/{profileId} {
+      allow read: if isOwner(profileId)
+        || (isSignedIn() && resource.data.ownerUid == request.auth.uid)
+        || isApprovedAdmin();
+      allow create, update: if isSignedIn()
+        && (
+          request.auth.uid == profileId
+          || request.resource.data.ownerUid == request.auth.uid
+        )
+        && request.resource.data.id == profileId
+        && request.resource.data.role == "learner"
+        && request.resource.data.keys().hasOnly([
+          "avatarAssetKey",
+          "avatarCategory",
+          "avatarId",
+          "buddyEmoji",
+          "createdAt",
+          "deviceId",
+          "displayName",
+          "gradeLevel",
+          "id",
+          "isDeleted",
+          "name",
+          "ownerUid",
+          "profileId",
+          "role",
+          "syncVersion",
+          "updatedAt"
+        ]);
+      allow delete: if isApprovedAdmin();
+    }
+
+    match /curriculumLevels/{levelId} {
+      allow read: if canReadPublishedResource();
+      allow create, update, delete: if isApprovedAdmin();
+    }
+
+    match /worlds/{worldId} {
+      allow read: if canReadPublishedResource();
+      allow create, update, delete: if isApprovedAdmin();
+    }
+
+    match /topics/{topicId} {
+      allow read: if canReadPublishedResource();
+      allow create, update, delete: if isApprovedAdmin();
+    }
+
+    match /stages/{stageId} {
+      allow read: if canReadPublishedResource();
+      allow create, update, delete: if isApprovedAdmin();
+    }
+
+    match /activities/{activityId} {
+      allow read: if canReadPublishedResource();
+      allow create, update, delete: if isApprovedAdmin();
+    }
+
+    match /challenges/{challengeId} {
+      allow read: if canReadPublishedResource();
+      allow create, update, delete: if isApprovedAdmin();
+    }
+
+    match /rewards/{rewardId} {
+      allow read: if canReadPublishedResource();
+      allow create, update, delete: if isApprovedAdmin();
+    }
+
+    match /badges/{badgeId} {
+      allow read: if canReadPublishedResource();
+      allow create, update, delete: if isApprovedAdmin();
+    }
+
+    match /achievements/{achievementId} {
+      allow read: if canReadPublishedResource();
+      allow create, update, delete: if isApprovedAdmin();
+    }
+
+    match /curatedQuizzes/{quizId} {
+      allow read: if isSignedIn()
+        && (resource.data.status == "published" || isApprovedAdmin());
+      allow create, update, delete: if isApprovedAdmin();
+    }
+
+    match /vocabularyItems/{itemId} {
+      allow read: if isSignedIn()
+        && (resource.data.status == "published" || isApprovedAdmin());
+      allow create, update, delete: if isApprovedAdmin();
+    }
+
+    match /assetRegistry/{assetId} {
+      allow read: if isSignedIn()
+        && (resource.data.status == "approved" || isApprovedAdmin());
+      allow create, update, delete: if isApprovedAdmin();
+    }
+
+    match /adminAssets/{assetId} {
+      allow read, create, update, delete: if isApprovedAdmin();
+    }
+
+    match /adminActivityLogs/{logId} {
+      allow read, create: if isApprovedAdmin();
+      allow update, delete: if false;
+    }
+
+    match /quizAttempts/{attemptId} {
+      allow create: if isOwnQuizAttempt()
+        && isSafeQuizAttemptAnalytics();
+      allow read: if isApprovedAdmin()
+        || (isSignedIn() && resource.data.learnerUid == request.auth.uid);
+      allow update, delete: if false;
+    }
+
+    match /leaderboards/global/entries/{entryId} {
+      allow read: if isSignedIn()
+        && isSanitizedLeaderboardEntry(resource.data);
+      allow create, update: if isApprovedAdmin()
+        && isSanitizedLeaderboardEntry(request.resource.data);
+      allow delete: if isApprovedAdmin();
+    }
+
+    match /leaderboards/levels/{levelId}/entries/{entryId} {
+      allow read: if isSignedIn()
+        && isSanitizedLeaderboardEntry(resource.data);
+      allow create, update: if isApprovedAdmin()
+        && isSanitizedLeaderboardEntry(request.resource.data)
+        || isOwnSanitizedLeaderboardEntry(entryId);
+      allow delete: if isApprovedAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

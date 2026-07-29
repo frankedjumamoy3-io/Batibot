@@ -1,0 +1,42 @@
+import type { VocabularySubcategory } from "@/src/data/vocabulary/types";
+
+const animationAssets = {
+  adding: require("../../../assets/lottie/vocabulary/adding.json") as object,
+  animals: require("../../../assets/lottie/vocabulary/animals.json") as object,
+  comparing: require("../../../assets/lottie/vocabulary/comparing.json") as object,
+  counting: require("../../../assets/lottie/vocabulary/counting.json") as object,
+  nature: require("../../../assets/lottie/vocabulary/nature.json") as object,
+  plants: require("../../../assets/lottie/vocabulary/plants.json") as object,
+  shapes: require("../../../assets/lottie/vocabulary/shapes.json") as object,
+  things: require("../../../assets/lottie/vocabulary/things.json") as object,
+};
+
+export const VOCABULARY_LOTTIE_SOURCES: Record<VocabularySubcategory, object> = {
+  actions: animationAssets.things,
+  adding: animationAssets.adding,
+  alphabet: animationAssets.things,
+  animals: animationAssets.animals,
+  body: animationAssets.things,
+  colors: animationAssets.shapes,
+  community: animationAssets.things,
+  comparing: animationAssets.comparing,
+  counting: animationAssets.counting,
+  division: animationAssets.counting,
+  family: animationAssets.things,
+  fractions: animationAssets.shapes,
+  measurement: animationAssets.comparing,
+  money: animationAssets.counting,
+  multiplication: animationAssets.adding,
+  nature: animationAssets.nature,
+  numbers: animationAssets.counting,
+  patterns: animationAssets.shapes,
+  plants: animationAssets.plants,
+  "place-value": animationAssets.counting,
+  "problem-solving": animationAssets.adding,
+  reading: animationAssets.things,
+  school: animationAssets.things,
+  shapes: animationAssets.shapes,
+  story: animationAssets.things,
+  things: animationAssets.things,
+  vocabulary: animationAssets.things,
+};
