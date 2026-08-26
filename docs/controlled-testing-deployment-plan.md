@@ -37,7 +37,7 @@ Prepare the current BatiBot application for a small, controlled testing deployme
 - [x] Confirmed the controlled bundle contains **Open Test Account** and **BatiBot Test Account**.
 - [x] Installed nested Firebase Functions dependencies and passed backend JavaScript syntax validation.
 - [x] Passed the learning-architecture dry run for 5 levels, 37 worlds, 247 topics, and 1,976 stages.
-- [ ] Perform the interactive browser/device learner-flow smoke test listed in Phase 3.
+- [x] Passed the Phase 3 browser smoke test in headless Microsoft Edge: login, signup, QA account, Rank/Play/Reward, Animal Adventure, Dog lesson, and quiz route.
 - [ ] Build an Android preview APK only if an installable test artifact is requested and EAS credentials are available.
 - [ ] Deploy Firebase Hosting only after explicit approval and Firebase CLI authentication.
 
@@ -97,6 +97,8 @@ Exit gate:
 - No TypeScript, lint, architecture, asset-resolution, or active-learning validation errors remain that block the controlled test.
 
 ### Phase 3 — Produce the Web Test Build
+
+Status: **Completed locally on 2026-08-26.** The QA-enabled Expo export produced 76 static routes and 565 files. A real headless Microsoft Edge session rendered login and signup, opened the controlled test account, navigated Rank / Play / Reward, opened Animal Adventure, opened the Dog lesson at `/lesson/preschool-animal-adventure:Dog`, and rendered `/quiz`. The temporary smoke harness and local servers were removed after validation. Firebase Hosting was not deployed.
 
 1. Enable the existing QA entry only for the controlled build:
 
