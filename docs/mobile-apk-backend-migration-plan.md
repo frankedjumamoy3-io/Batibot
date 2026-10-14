@@ -22,7 +22,7 @@ Initial learner curriculum, artwork, settings, and progress remain bundled or st
 
 - **Mobile client:** the existing Expo/React Native application in this repository.
 - **Test artifact:** an internal Android APK built with the existing EAS `preview` profile.
-- **Backend:** a separate private repository named `Batibot-API` using Node.js, TypeScript, and Express.
+- **Backend:** a separate private repository named `Batibot-backend` using Node.js, TypeScript, and Express.
 - **API hosting:** one Render web service.
 - **Database:** PostgreSQL accessed through a standard `DATABASE_URL`.
 - **Initial database host:** Render PostgreSQL is acceptable only for a time-boxed test of 30 days or less. The free database expires after 30 days, provides no backups, and must be exported before expiration.
@@ -58,7 +58,7 @@ Initial learner curriculum, artwork, settings, and progress remain bundled or st
 
 ## Phase 1 - Audit, Contract, and Repository Foundation
 
-Status: **Completed locally on 2026-10-14.** Firebase dependencies were classified in `docs/firebase-backend-dependency-audit.md`. A separate local Git repository was initialized at `C:\Users\User\Batibot-API` with the versioned health/status contract, request IDs, structured logging, safe error envelopes, security headers, JSON limits, rate limiting, tests, and Render Blueprint configuration. Its validation gate passes and the scaffold is preserved in commit `9807835`. Publishing the private repository and connecting Render remain pending because no authenticated GitHub or Render owner workspace is available yet.
+Status: **Completed locally on 2026-10-14.** Firebase dependencies were classified in `docs/firebase-backend-dependency-audit.md`. A separate local Git repository is located at `C:\Users\User\Batibot\Batibot-backend` with the versioned health/status contract, request IDs, structured logging, safe error envelopes, security headers, JSON limits, rate limiting, tests, and Render Blueprint configuration. Its validation gate passes and the scaffold is preserved in commit `9807835`. Publishing the private repository and connecting Render remain pending because no authenticated GitHub or Render owner workspace is available yet.
 
 ### Objective
 
@@ -73,7 +73,7 @@ Define the smallest backend contract required by the current APK and establish a
    - disable for the controlled release.
 2. Keep learner profile creation, learner settings, rewards, curriculum content, and ordinary progress local unless a test requirement proves cloud persistence is necessary.
 3. Define versioned API contracts under `/api/v1` before changing the mobile client.
-4. Create a private `Batibot-API` repository with:
+4. Create a private `Batibot-backend` repository with:
    - Node.js and TypeScript;
    - Express;
    - request validation;
@@ -268,7 +268,7 @@ Deploy only the API and PostgreSQL database, then produce an installable APK con
 
 ### Render Web Service
 
-1. Connect the private `Batibot-API` repository.
+1. Connect the private `Batibot-backend` repository.
 2. Configure the explicit Node.js version, build command, start command, health-check path, and environment variables.
 3. Deploy the Express service over Render HTTPS.
 4. Confirm:
@@ -379,7 +379,7 @@ Test on at least one representative Android phone and, if available, one second 
 
 Implementation begins only after the owner confirms:
 
-1. the GitHub account or organization that will own the private `Batibot-API` repository;
+1. the GitHub account or organization that will own the private `Batibot-backend` repository;
 2. the Render account or workspace that will own the API and database;
 3. the available Expo/EAS account that will produce the APK; and
 4. whether the controlled test will end within the 30-day free Render PostgreSQL window.

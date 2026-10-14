@@ -182,7 +182,7 @@ Screens must not import the API client, database concepts, or provider SDKs dire
 ## Validation Gaps to Close
 
 - The current test suite validates frontend architecture and curriculum but does not exercise an HTTP API.
-- Backend contract, authentication, authorization, migration, transaction, and restore tests must be added in `Batibot-API`.
+- Backend contract, authentication, authorization, migration, transaction, and restore tests must be added in `Batibot-backend`.
 - APK tests must cover Render cold starts and service unavailability.
 - An export/restore drill is required because free Render PostgreSQL has no managed backups.
 - Mobile tests must verify that raw backend errors never reach learner-facing UI.
@@ -198,7 +198,7 @@ Screens must not import the API client, database concepts, or provider SDKs dire
 ## Phase 1 Completion Criteria
 
 - This audit is reviewed and remains the source of truth for initial migration scope.
-- A local `Batibot-API` repository implements the health/status contract.
+- A local `Batibot-backend` repository implements the health/status contract.
 - The API installs from a lockfile and passes lint, typecheck, and tests.
 - No mobile runtime behavior is changed in Phase 1.
 - External GitHub and Render resources remain pending until authenticated owner accounts are available.
