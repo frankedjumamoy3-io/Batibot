@@ -58,7 +58,7 @@ Initial learner curriculum, artwork, settings, and progress remain bundled or st
 
 ## Phase 1 - Audit, Contract, and Repository Foundation
 
-Status: **Completed locally on 2026-10-14.** Firebase dependencies were classified in `docs/firebase-backend-dependency-audit.md`. A separate local Git repository is located at `C:\Users\User\Batibot\Batibot-backend` with the versioned health/status contract, request IDs, structured logging, safe error envelopes, security headers, JSON limits, rate limiting, tests, and Render Blueprint configuration. Its validation gate passes and the scaffold is preserved in commit `9807835`. Publishing the private repository and connecting Render remain pending because no authenticated GitHub or Render owner workspace is available yet.
+Status: **Completed on 2026-10-14.** Firebase dependencies were classified in `docs/firebase-backend-dependency-audit.md`. The separate backend repository is located at `C:\Users\User\Batibot\Batibot-backend` and published at `https://github.com/frankedjumamoy3-io/Batibot-backend.git`. It contains the versioned health/status contract, request IDs, structured logging, safe error envelopes, security headers, JSON limits, rate limiting, tests, and Render Blueprint configuration. The Phase 1 scaffold is preserved in commits `9807835` and `a399bcf`. Connecting the repository to the owner's Render workspace remains pending.
 
 ### Objective
 
@@ -122,6 +122,8 @@ Define the smallest backend contract required by the current APK and establish a
 - No mobile behavior has been changed yet.
 
 ## Phase 2 - PostgreSQL Schema, Migrations, and Authentication
+
+Status: **Implemented and validated locally on 2026-10-14; external database gate pending.** Backend commit `752e54e` adds the seven-table PostgreSQL schema, checksum-protected migrations, database-aware health checks, Argon2 administrator authentication, short-lived JWT access tokens, rotating hashed refresh tokens, role middleware, a controlled administrator bootstrap command, and database operations documentation. TypeScript, lint, 13 automated tests, the production build, the npm vulnerability audit, and the repository secret-pattern scan pass. Clean migration and idempotence tests pass against a PostgreSQL-compatible in-memory adapter. A real PostgreSQL instance and PostgreSQL client tools are not available on this workstation, so the real-database migration plus `pg_dump` / `pg_restore` drill must be completed after the Render database is provisioned; the compatibility test is not treated as that exit gate.
 
 ### Objective
 
