@@ -7,6 +7,7 @@ import {
 } from "firebase/firestore";
 
 import { db } from "@/src/config/firebase";
+import { USE_NODE_BACKEND } from "@/src/config/backend";
 import type {
   ContentDraftStageType,
   CurriculumContentMetadata,
@@ -30,7 +31,7 @@ export async function getPublishedLearnerStageContent(input: {
   totalStages: number;
   worldId: string;
 }): Promise<PublishedLearnerStageContent | null> {
-  if (!input.gradeLevel || !input.worldId || !input.topicTitle) {
+  if (USE_NODE_BACKEND || !input.gradeLevel || !input.worldId || !input.topicTitle) {
     return null;
   }
 

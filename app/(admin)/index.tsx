@@ -15,6 +15,8 @@ import {
   type AdminAnalytics,
 } from "@/src/services/admin/adminAnalyticsService";
 import { useCurrentUserProfile } from "@/src/presentation/hooks/use-current-user-profile";
+import { USE_NODE_BACKEND } from "@/src/config/backend";
+import { ControlledQuizConsole } from "@/src/components/admin/ControlledQuizConsole";
 
 const emptyAnalytics: AdminAnalytics = {
   activeLearners: 0,
@@ -34,6 +36,10 @@ const emptyAnalytics: AdminAnalytics = {
 };
 
 export default function AdminDashboardScreen() {
+  return USE_NODE_BACKEND ? <ControlledQuizConsole /> : <LegacyAdminDashboard />;
+}
+
+function LegacyAdminDashboard() {
   const { profile } = useCurrentUserProfile();
   const [analytics, setAnalytics] = useState<AdminAnalytics>(emptyAnalytics);
   const [loading, setLoading] = useState(true);

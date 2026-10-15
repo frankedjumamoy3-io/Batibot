@@ -5,6 +5,7 @@ import {
   type UserSettings,
 } from "@/constants/theme";
 import { db } from "@/src/config/firebase";
+import { USE_NODE_BACKEND } from "@/src/config/backend";
 import {
   getSecureJsonItem,
   setSecureJsonItem,
@@ -162,7 +163,7 @@ async function getCloudUserSettings(userId: string) {
 }
 
 export async function getUserSettings(storageKey: string, userId?: string | null) {
-  if (userId) {
+  if (userId && !USE_NODE_BACKEND) {
     try {
       const cloudSettings = await getCloudUserSettings(userId);
 
@@ -185,7 +186,7 @@ export async function saveUserSettings(
 ) {
   await setSecureJsonItem(storageKey, settings);
 
-  if (!userId) {
+  if (USE_NODE_BACKEND || !userId) {
     return;
   }
 

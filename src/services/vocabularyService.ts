@@ -13,6 +13,7 @@ import {
 } from "firebase/firestore";
 
 import { db } from "@/src/config/firebase";
+import { USE_NODE_BACKEND } from "@/src/config/backend";
 import {
   VOCABULARY_CATEGORY_META,
   VOCABULARY_ITEMS,
@@ -866,6 +867,7 @@ function filterVocabularyItems(
 export async function getPublishedVocabularyForQuizGeneration(
   filters: VocabularyGenerationFilters
 ) {
+  if (USE_NODE_BACKEND) return filterVocabularyItems(VOCABULARY_ITEMS.map(mapLocalVocabularyToFirestoreItem), filters);
   const mode = filters.mode ?? "selected_topic_only";
   const constraints = [where("status", "==", "published")];
 
@@ -905,6 +907,7 @@ export async function getPublishedVocabularyForQuizGeneration(
 }
 
 async function loadPublishedVocabularyItemsFromFirestore() {
+  if (USE_NODE_BACKEND) return VOCABULARY_ITEMS;
   try {
     const snapshot = await getDocs(
       query(collection(db, VOCABULARY_COLLECTION), where("status", "==", "published"))
@@ -954,6 +957,7 @@ export async function getPublishedVocabularyItemById(id?: string | string[]) {
   }
 
   const localItem = getVocabularyItem(itemId) ?? null;
+  if (USE_NODE_BACKEND) return localItem;
   const cachedItem = publishedVocabularyItemsCache?.find(
     (item) => item.id === itemId || item.legacyIds.includes(itemId)
   );
@@ -1015,6 +1019,7 @@ export async function getPublishedVocabularyItemById(id?: string | string[]) {
 }
 
 export async function seedPublishedVocabularyItems() {
+  if (USE_NODE_BACKEND) throw new Error("Live vocabulary seeding is disabled for controlled testing.");
   const timestamp = serverTimestamp();
   const currentIds = new Set(VOCABULARY_ITEMS.map((item) => item.id));
   const snapshot = await getDocs(collection(db, VOCABULARY_COLLECTION));

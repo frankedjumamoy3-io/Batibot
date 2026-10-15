@@ -10,6 +10,7 @@ import {
 } from "firebase/firestore";
 
 import { db } from "@/src/config/firebase";
+import { USE_NODE_BACKEND } from "@/src/config/backend";
 import {
   getLearnerProgressStorageKey,
   loadLocalLearnerProgress,
@@ -216,6 +217,7 @@ export async function getGradeLeaderboardFromSnapshots(
   gradeLevel: GradeLevel,
   maxEntries = 10
 ): Promise<LeaderboardEntry[]> {
+  if (USE_NODE_BACKEND) return getLocalGradeLeaderboard(gradeLevel, { maxEntries });
   const fetchLimit = Math.max(maxEntries * 3, maxEntries);
   const leaderboardRef = collection(
     db,
@@ -329,6 +331,7 @@ export async function getLocalGradeLeaderboard(
 export async function syncCurrentLearnerLeaderboardEntry(
   input: LeaderboardSyncInput
 ) {
+  if (USE_NODE_BACKEND) return;
   if (
     !input.uid ||
     input.isLocalLearner === true ||
@@ -393,6 +396,7 @@ export async function getLeaderboardEntries({
   maxCount?: number;
   scope: "global" | "level";
 }) {
+  if (USE_NODE_BACKEND) return buildLocalLeaderboard(currentLearner, scope);
   if (isCurrentLearnerExcluded(currentLearner)) {
     return [];
   }

@@ -6,10 +6,13 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
 import { auth, db } from "@/src/config/firebase";
+import { USE_NODE_BACKEND } from "@/src/config/backend";
+import { getApiAccessToken, logoutApi, observeApiSession, restoreApiSession } from "@/src/infrastructure/api/session";
 import {
   createFallbackUserProfile,
   mapUserProfile,
@@ -43,6 +46,7 @@ type InternalAuthSessionState = Omit<
 const AuthSessionContext = createContext<AuthSessionState | null>(null);
 
 export function AuthSessionProvider({ children }: { children: ReactNode }) {
+  const sessionRevision = useRef(0);
   const [state, setState] = useState<InternalAuthSessionState>({
     loading: true,
     profile: null,
@@ -50,6 +54,22 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
+    if (USE_NODE_BACKEND) {
+      let active = true;
+      const stop = observeApiSession((account) => {
+        const currentRevision = ++sessionRevision.current;
+        if (account) {
+          const user: AuthSessionUser = { uid: account.id, email: account.email, displayName: account.displayName, photoURL: null, getIdToken: getApiAccessToken };
+          setState({ loading: false, user, profile: { ...createFallbackUserProfile(user), role: account.role } });
+        } else {
+          void loadLearnerSession().then(session => {
+            if (active && currentRevision === sessionRevision.current) setState({ loading: false, user: session?.user ?? null, profile: session?.profile ?? null });
+          }).catch(() => { if (active && currentRevision === sessionRevision.current) setState({ loading: false, user: null, profile: null }); });
+        }
+      });
+      void restoreApiSession().catch(() => undefined);
+      return () => { active = false; stop(); };
+    }
     let stopProfileListener: (() => void) | undefined;
     const authFallbackTimer = setTimeout(() => {
       setState((current) =>
@@ -128,6 +148,7 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
       ...state,
       endSession: async () => {
         await logoutCurrentUser();
+        sessionRevision.current++;
         setState({
           loading: false,
           profile: null,
@@ -135,6 +156,8 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
         });
       },
       startLearnerSession: async (input) => {
+        if (USE_NODE_BACKEND) await logoutApi();
+        sessionRevision.current++;
         const session = await saveLearnerSession(input);
         setState({
           loading: false,

@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -14,7 +14,7 @@ import {
   getCurriculumForGrade,
 } from "@/src/data/curriculum/learning-path";
 import { type QuizPreset, type QuizQuestion } from "@/src/data/quiz";
-import { getGradeQuizPresets } from "@/src/data/learner-module";
+import { useGradeQuizzes } from "@/src/presentation/hooks/use-grade-quizzes";
 import {
   SIMPLE_COLORS,
   simpleStyles as styles,
@@ -121,14 +121,11 @@ export default function QuizScreen() {
   const [feedback, setFeedback] = useState<{ answer: string; correct: boolean } | null>(null);
   const [finished, setFinished] = useState(false);
 
-  const quizList = useMemo(
-    () => getGradeQuizPresets(profile?.gradeLevel).slice(0, 6),
-    [profile?.gradeLevel]
-  );
+  const quizList = useGradeQuizzes(profile?.gradeLevel);
   const dailyQuiz = quizList[0];
   const curriculum = getCurriculumForGrade(profile?.gradeLevel);
   const currentQuestion = activeQuiz?.questions[questionIndex] ?? null;
-  const questionTotal = activeQuiz ? Math.min(activeQuiz.questions.length, 5) : 5;
+  const questionTotal = activeQuiz ? (activeQuiz.id.startsWith("curated-") ? activeQuiz.questions.length : Math.min(activeQuiz.questions.length, 5)) : 5;
   const options = currentQuestion ? getOptions(currentQuestion) : [];
 
   function startQuiz(quiz: QuizPreset) {

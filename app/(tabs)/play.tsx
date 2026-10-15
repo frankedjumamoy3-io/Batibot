@@ -7016,6 +7016,13 @@ function WorldMap({
           { paddingBottom: bottomMapPadding, paddingHorizontal: mapPadding },
         ]}
       >
+        <AnimatedButton
+          accessibilityLabel="Open practice quizzes"
+          onPress={() => router.push("/(tabs)/quiz")}
+          style={{ backgroundColor: "#6D28D9", borderRadius: 18, minHeight: 56, padding: 16, alignItems: "center", marginBottom: 16 }}
+        >
+          <Text style={{ color: "white", fontSize: 20, fontWeight: "700" }}>Practice quizzes</Text>
+        </AnimatedButton>
         {curriculumWorlds.map((world, index) => {
           const locked = index >= unlockedWorldCount;
           const worldAsset = resolveWorldAsset(world.id);

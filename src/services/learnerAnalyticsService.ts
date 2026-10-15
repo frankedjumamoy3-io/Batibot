@@ -9,6 +9,8 @@ import {
 } from "firebase/firestore";
 
 import { db } from "@/src/config/firebase";
+import { USE_NODE_BACKEND } from "@/src/config/backend";
+import { apiRequest } from "@/src/infrastructure/api/client";
 import type { QuizCategory } from "@/src/data/quiz/types";
 
 type JsonRecord = Record<string, unknown>;
@@ -121,6 +123,12 @@ function normalizeAttempt(id: string, data: JsonRecord): LearnerQuizAttempt {
 }
 
 export async function recordLearnerQuizAttempt(input: LearnerQuizAttemptInput) {
+  if (USE_NODE_BACKEND) {
+    if (input.quizId.startsWith("curated-")) {
+      await apiRequest("/quiz-attempts", { method: "POST", body: { quizId: input.quizId.slice(8), score: input.score, totalQuestions: input.total } }).catch(() => undefined);
+    }
+    return;
+  }
   if (input.excludeFromAnalytics === true || input.isTestAccount === true) {
     return;
   }
@@ -135,6 +143,7 @@ export async function getLearnerQuizAttempts(
   maxCount = 200,
   options: { includeTestAccounts?: boolean } = {}
 ) {
+  if (USE_NODE_BACKEND) return [];
   const snapshot = await getDocs(
     query(
       collection(db, "quizAttempts"),

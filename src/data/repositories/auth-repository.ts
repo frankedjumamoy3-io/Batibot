@@ -11,6 +11,8 @@ import {
   saveLearnerSession,
 } from "@/src/data/repositories/learner-session-repository";
 import { auth } from "@/src/config/firebase";
+import { USE_NODE_BACKEND } from "@/src/config/backend";
+import { loginApi, logoutApi } from "@/src/infrastructure/api/session";
 import { ensureUserProfile } from "@/src/data/repositories/user-profile-repository";
 import type { LearnerGradeLevel } from "@/src/types/user";
 
@@ -32,6 +34,7 @@ export async function loginWithEmail({
   email,
   password,
 }: EmailPasswordCredentials) {
+  if (USE_NODE_BACKEND) return { user: await loginApi(email, password) };
   const credentials = await signInWithEmailAndPassword(
     auth,
     normalizeEmail(email),
@@ -61,6 +64,7 @@ export async function signupWithEmail({
   displayName,
   gradeLevel,
 }: SignUpInput) {
+  if (USE_NODE_BACKEND) throw new Error("Administrator accounts must be provisioned by the project owner.");
   const credentials = await createUserWithEmailAndPassword(
     auth,
     normalizeEmail(email),
@@ -88,10 +92,12 @@ export async function signupWithEmail({
 }
 
 export async function requestPasswordReset(email: string) {
+  if (USE_NODE_BACKEND) throw new Error("Please contact the project owner to reset this administrator account.");
   await sendPasswordResetEmail(auth, normalizeEmail(email));
 }
 
 export async function logoutCurrentUser() {
   await clearLearnerSession();
+  if (USE_NODE_BACKEND) return logoutApi();
   await signOut(auth);
 }

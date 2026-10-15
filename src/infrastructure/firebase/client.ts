@@ -1,8 +1,9 @@
 import { getApp, getApps, initializeApp } from "firebase/app";
-import { getAuth, initializeAuth } from "firebase/auth";
+import { getAuth, initializeAuth, inMemoryPersistence } from "firebase/auth";
 import { getFirestore, initializeFirestore, memoryLocalCache } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { Platform } from "react-native";
+import { USE_NODE_BACKEND } from "@/src/config/backend";
 
 import {
   getSecureJsonItem,
@@ -57,6 +58,10 @@ function createReactNativePersistence() {
 }
 
 function createAuth() {
+  if (USE_NODE_BACKEND) {
+    try { return initializeAuth(app, { persistence: inMemoryPersistence }); }
+    catch { return getAuth(app); }
+  }
   if (Platform.OS === "web") {
     return getAuth(app);
   }

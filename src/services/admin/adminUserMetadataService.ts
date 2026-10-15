@@ -2,6 +2,7 @@ import { Timestamp, collection, getDocs, limit, query } from "firebase/firestore
 
 import { isAllowedAdminEmail } from "@/src/config/admin";
 import { db } from "@/src/config/firebase";
+import { USE_NODE_BACKEND } from "@/src/config/backend";
 import type { LearnerProgressState } from "@/src/domain/entities/learner-progress";
 import { sanitizeLearnerProgress } from "@/src/domain/usecases/learner-progress/progress-state";
 import { requireAdmin } from "@/src/services/adminAccessService";
@@ -24,6 +25,7 @@ export async function listUserMetadataForAdmin(
   options: ListUserMetadataOptions = {}
 ): Promise<UserMetadata[]> {
   requireAdmin(profile);
+  if (USE_NODE_BACKEND) return [];
 
   try {
     const snapshot = await getDocs(

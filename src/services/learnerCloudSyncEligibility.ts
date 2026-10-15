@@ -1,4 +1,5 @@
 import { auth } from "@/src/config/firebase";
+import { USE_NODE_BACKEND } from "@/src/config/backend";
 import type { AuthSessionUser } from "@/src/domain/entities/auth-session";
 import type { UserProfile } from "@/src/types/user";
 
@@ -9,7 +10,7 @@ export function canSyncLearnerProgressToCloud({
   profile?: UserProfile | null;
   user?: AuthSessionUser | null;
 }) {
-  if (!user || user.isLocalLearner === true) {
+  if (USE_NODE_BACKEND || !user || user.isLocalLearner === true) {
     return false;
   }
 

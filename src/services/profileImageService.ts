@@ -3,6 +3,10 @@ import { signInAnonymously, updateProfile } from "firebase/auth";
 import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
 
 import { auth, storage } from "@/src/config/firebase";
+import { USE_NODE_BACKEND } from "@/src/config/backend";
+import { Directory, File, Paths } from "expo-file-system";
+import type { Directory as NativeDirectory, File as NativeFile } from "expo-file-system/build/ExpoFileSystem.types";
+import { Platform } from "react-native";
 import { ensureUserProfile } from "@/src/data/repositories/user-profile-repository";
 import {
   saveLearnerSession,
@@ -89,6 +93,17 @@ async function ensureUploadAuth() {
   }
 }
 
+async function saveDevicePhoto(uri: string, profileId: string) {
+  if (Platform.OS === "web") return uri;
+  // This project checks web and native suffixes together; the web shim omits
+  // native methods. This branch runs only on devices and uses the SDK types.
+  const directory = new Directory(Paths.document, "profile-photos") as unknown as NativeDirectory;
+  directory.create({ intermediates: true, idempotent: true });
+  const destination = new File(directory.uri, `${assertSafeProfileId(profileId)}-${Date.now()}.jpg`) as unknown as NativeFile;
+  (new File(uri) as unknown as NativeFile).copy(destination);
+  return destination.uri;
+}
+
 export async function pickProfilePhoto(): Promise<{
   height?: number;
   uri: string;
@@ -129,6 +144,7 @@ export async function uploadProfilePhoto({
   profileId: string;
 }) {
   const safeProfileId = assertSafeProfileId(profileId);
+  if (USE_NODE_BACKEND) return { downloadUrl: await saveDevicePhoto(localUri, safeProfileId), storagePath: "" };
   await ensureUploadAuth();
   const response = await fetch(localUri);
   const blob = await response.blob();
@@ -177,6 +193,7 @@ export async function handleProfileImageUpload(
   asset: ValidProfileImageAsset,
   previousImagePath?: string | null
 ) {
+  if (USE_NODE_BACKEND) return { profileImagePath: "", profileImageUrl: await saveDevicePhoto(asset.uri, userId) };
   const response = await fetch(asset.uri);
   const blob = await response.blob();
   const extension = asset.fileName.split(".").pop()?.toLowerCase() ?? "jpg";
@@ -214,6 +231,7 @@ export async function handleProfileImageUpload(
 }
 
 export async function removeProfileImage(profileImagePath?: string | null) {
+  if (USE_NODE_BACKEND) return;
   if (!auth.currentUser) {
     return;
   }

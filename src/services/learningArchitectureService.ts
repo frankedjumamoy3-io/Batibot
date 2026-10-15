@@ -7,6 +7,8 @@ import {
 } from "firebase/firestore";
 
 import { db } from "@/src/config/firebase";
+import { USE_NODE_BACKEND } from "@/src/config/backend";
+import { buildLearningArchitectureSnapshot } from "@/src/data/curriculum/firestore-architecture";
 import type {
   FirestoreActivityDocument,
   FirestoreChallengeDocument,
@@ -40,6 +42,7 @@ const COLLECTION_NAMES = {
 async function getPublishedCollection<T extends { id: string; order?: number }>(
   collectionName: LearningArchitectureCollectionName
 ) {
+  if (USE_NODE_BACKEND) return buildLearningArchitectureSnapshot()[collectionName] as unknown as T[];
   const snapshot = await getDocs(
     query(
       collection(db, COLLECTION_NAMES[collectionName]),
@@ -86,6 +89,7 @@ export async function getPublishedLearningArchitecture(): Promise<LearningArchit
 }
 
 export async function getPublishedWorldsForCurriculumLevel(curriculumLevel: string) {
+  if (USE_NODE_BACKEND) return buildLearningArchitectureSnapshot().worlds.filter(world => world.curriculumLevel === curriculumLevel);
   const snapshot = await getDocs(
     query(
       collection(db, COLLECTION_NAMES.worlds),

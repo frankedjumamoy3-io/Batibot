@@ -3,6 +3,7 @@
   "main": "expo-router/entry",
   "version": "1.0.2",
   "scripts": {
+    "test:api-integration": "node --test scripts/test-api-integration.cjs",
     "start": "node ./scripts/start-expo-fixed.js",
     "start:clear": "node ./scripts/start-expo-fixed.js --clear",
     "start:fresh": "node ./scripts/clean-metro-cache.js && node ./scripts/start-expo-fixed.js --clear",
@@ -48,6 +49,7 @@
     "expo-asset": "~12.0.13",
     "expo-audio": "~1.1.1",
     "expo-constants": "~18.0.14",
+    "expo-file-system": "~19.0.24",
     "expo-font": "~14.0.12",
     "expo-haptics": "~15.0.8",
     "expo-image": "~3.0.11",

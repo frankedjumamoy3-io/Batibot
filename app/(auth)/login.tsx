@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { isAllowedAdminEmail } from "@/src/config/admin";
+import { USE_NODE_BACKEND } from "@/src/config/backend";
 import { AUTH_ASSETS } from "@/src/data/auth-assets";
 import {
   findLocalLearnerProfiles,
@@ -183,7 +184,7 @@ export default function LoginScreen() {
       return;
     }
 
-    if (!isAllowedAdminEmail(resolvedEmail)) {
+    if (!USE_NODE_BACKEND && !isAllowedAdminEmail(resolvedEmail)) {
       Alert.alert(
         AUTH_VALIDATION_MESSAGES.restrictedAdminEmail.title,
         AUTH_VALIDATION_MESSAGES.restrictedAdminEmail.message,
@@ -205,7 +206,7 @@ export default function LoginScreen() {
       await loginWithEmail({ email: resolvedEmail, password });
       router.replace(APP_ROUTES.admin.dashboard as never);
     } catch (error) {
-      if (isMissingAdminAuthAccount(error)) {
+      if (!USE_NODE_BACKEND && isMissingAdminAuthAccount(error)) {
         try {
           await signupWithEmail({
             displayName: "BatiBot Admin",

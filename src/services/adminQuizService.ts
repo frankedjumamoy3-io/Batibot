@@ -15,6 +15,8 @@ import {
 import { User } from "firebase/auth";
 
 import { db } from "@/src/config/firebase";
+import { USE_NODE_BACKEND } from "@/src/config/backend";
+import { deleteApiQuiz, getApiActivity, getApiQuiz, listApiQuizzes, saveApiQuiz } from "@/src/data/repositories/api-quiz-repository";
 import { getCurriculumPromptContext } from "@/src/content/curriculum";
 import {
   ACTIVE_LEARNING_PHASES,
@@ -2503,6 +2505,7 @@ export async function generateQuizDraftWithGemini(
   input: GenerateQuizDraftInput,
   user?: Pick<User, "getIdToken">
 ) {
+  if (USE_NODE_BACKEND) return createLocalQuizDraft(input);
   const token = user ? await user.getIdToken() : null;
 
   let response: Response;
@@ -2566,6 +2569,7 @@ export async function saveCuratedQuizDraft(
   draft: CuratedQuizDraft,
   user: Pick<User, "uid" | "email">
 ) {
+  if (USE_NODE_BACKEND) return (await saveApiQuiz({ ...draft, status: "draft" })).id;
   const timestamp = serverTimestamp() as FieldValue;
   const lifecyclePayload = buildLifecyclePayload({
     draft,
@@ -2601,6 +2605,7 @@ export async function createAdminActivityLog({
   user: Pick<User, "uid" | "email">;
 }) {
   const identity = getAdminIdentity(user);
+  if (USE_NODE_BACKEND) return; // The API records quiz mutations atomically.
 
   await addDoc(collection(db, "adminActivityLogs"), {
     actionType,
@@ -2612,6 +2617,7 @@ export async function createAdminActivityLog({
 }
 
 export async function getAdminActivityLogs(maxCount = 20): Promise<AdminActivityLog[]> {
+  if (USE_NODE_BACKEND) return getApiActivity(maxCount);
   const snapshot = await getDocs(
     query(
       collection(db, "adminActivityLogs"),
@@ -2639,6 +2645,7 @@ export async function getAdminActivityLogs(maxCount = 20): Promise<AdminActivity
 }
 
 export async function getCuratedQuizzes(): Promise<CuratedQuiz[]> {
+  if (USE_NODE_BACKEND) return listApiQuizzes(true);
   const snapshot = await getDocs(
     query(collection(db, "curatedQuizzes"), orderBy("updatedAt", "desc"))
   );
@@ -2649,6 +2656,7 @@ export async function getCuratedQuizzes(): Promise<CuratedQuiz[]> {
 }
 
 export async function getCuratedQuizById(id: string): Promise<CuratedQuiz | null> {
+  if (USE_NODE_BACKEND) return getApiQuiz(id);
   const snapshot = await getDoc(doc(db, "curatedQuizzes", id));
 
   if (!snapshot.exists()) {
@@ -2663,6 +2671,7 @@ export async function createQuizDraft(
   user: Pick<User, "uid" | "email">,
   status: CuratedQuizStatus = "draft"
 ) {
+  if (USE_NODE_BACKEND) return (await saveApiQuiz({ ...draft, status })).id;
   const timestamp = serverTimestamp() as FieldValue;
 
   if (
@@ -2751,6 +2760,10 @@ export async function updateQuizDraft(
     status?: CuratedQuizStatus;
   } = {}
 ) {
+  if (USE_NODE_BACKEND) {
+    await saveApiQuiz({ ...draft, ...options }, quizId);
+    return;
+  }
   const lifecycleStatus = normalizeDraftLifecycleStatus(
     options.lifecycleStatus ?? draft.lifecycleStatus,
     getDefaultLifecycleStatus(options.status ?? "draft", draft)
@@ -3102,6 +3115,7 @@ export async function publishQuiz(
   quiz: CuratedQuiz,
   user: Pick<User, "uid" | "email">
 ) {
+  if (USE_NODE_BACKEND) { await saveApiQuiz({ status: "published", lifecycleStatus: "published" }, quiz.id); return; }
   if (quiz.lifecycleStatus !== "validated" && quiz.lifecycleStatus !== "published") {
     throw new Error("Run and pass BatiBot validation before publishing.");
   }
@@ -3145,6 +3159,7 @@ export async function unpublishQuiz(
   quiz: CuratedQuiz,
   user: Pick<User, "uid" | "email">
 ) {
+  if (USE_NODE_BACKEND) { await saveApiQuiz({ status: "ready-for-review", lifecycleStatus: "edited" }, quiz.id); return; }
   await updateDoc(doc(db, "curatedQuizzes", quiz.id), {
     status: "ready-for-review",
     lifecycleStatus: "edited",
@@ -3172,6 +3187,7 @@ export async function archiveQuiz(
   quiz: CuratedQuiz,
   user: Pick<User, "uid" | "email">
 ) {
+  if (USE_NODE_BACKEND) { await saveApiQuiz({ status: "archived" }, quiz.id); return; }
   await updateDoc(doc(db, "curatedQuizzes", quiz.id), {
     status: "archived",
     lifecycleLogs: [
@@ -3198,6 +3214,7 @@ export async function deleteDraft(
   quiz: CuratedQuiz,
   user: Pick<User, "uid" | "email">
 ) {
+  if (USE_NODE_BACKEND) { await deleteApiQuiz(quiz.id); return; }
   if (quiz.status === "published") {
     throw new Error("Published quizzes must be unpublished before deletion.");
   }

@@ -12,6 +12,7 @@ import {
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 
 import { db, storage } from "@/src/config/firebase";
+import { USE_NODE_BACKEND } from "@/src/config/backend";
 import { requireAdmin } from "@/src/services/adminAccessService";
 import {
   clearRuntimeAssets,
@@ -78,6 +79,7 @@ function toManifestAsset(
 export function subscribeToGlobalAssetRegistry(
   onChange?: (assets: BatiBotAssetManifestItem[]) => void
 ) {
+  if (USE_NODE_BACKEND) { clearRuntimeAssets(); onChange?.([]); return () => {}; }
   return onSnapshot(
     query(collection(db, "assetRegistry"), where("status", "==", "approved")),
     (snapshot) => {
@@ -99,6 +101,7 @@ export function subscribeToGlobalAssetRegistry(
 export function subscribeToAdminAssetRegistry(
   onChange: (assets: BatiBotAssetManifestItem[]) => void
 ) {
+  if (USE_NODE_BACKEND) { onChange([]); return () => {}; }
   return onSnapshot(
     collection(db, "assetRegistry"),
     (snapshot) => {
@@ -152,6 +155,7 @@ export async function uploadCurriculumAsset(
   profile: UserProfile | null | undefined
 ) {
   requireAdmin(profile);
+  if (USE_NODE_BACKEND) throw new Error("Remote uploads are disabled for controlled testing. Bundled artwork is available.");
   const response = await fetch(image.uri);
   const blob = await response.blob();
   const extension = image.fileName.split(".").pop()?.toLowerCase() ?? "png";
@@ -200,6 +204,7 @@ export async function setCurriculumAssetStatus(
   profile: UserProfile | null | undefined
 ) {
   requireAdmin(profile);
+  if (USE_NODE_BACKEND) throw new Error("Remote asset moderation is disabled for controlled testing.");
   await updateDoc(doc(db, "assetRegistry", assetId), {
     status,
     updatedAt: serverTimestamp(),

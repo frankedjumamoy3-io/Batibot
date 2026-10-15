@@ -2,6 +2,7 @@ import { signInAnonymously } from "firebase/auth";
 import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 
 import { auth, db } from "@/src/config/firebase";
+import { USE_NODE_BACKEND } from "@/src/config/backend";
 import { enqueueOfflineSyncTask } from "@/src/services/offlineSyncService";
 import type { LearnerGradeLevel } from "@/src/types/user";
 
@@ -54,6 +55,7 @@ async function getOptionalCloudOwnerUid() {
 export async function syncLearnerProfileToCloud(
   payload: LearnerProfileCloudPayload
 ) {
+  if (USE_NODE_BACKEND) return "offline" as const;
   try {
     const ownerUid = await getOptionalCloudOwnerUid();
 
@@ -139,6 +141,7 @@ export async function syncLearnerProfileToCloud(
 }
 
 export async function loadLearnerProfileFromCloud(profileId: string) {
+  if (USE_NODE_BACKEND) return null;
   try {
     const snapshot = await getDoc(doc(db, "users", profileId));
 
@@ -149,6 +152,7 @@ export async function loadLearnerProfileFromCloud(profileId: string) {
 }
 
 export async function markLearnerProfileDeleted(profileId: string) {
+  if (USE_NODE_BACKEND) return "offline" as const;
   try {
     await updateDoc(doc(db, "users", profileId), {
       isDeleted: true,

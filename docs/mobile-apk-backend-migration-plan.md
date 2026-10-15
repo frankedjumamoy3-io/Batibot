@@ -178,6 +178,10 @@ Create a minimal relational data model and secure administrator authentication w
 
 ## Phase 3 - API Features and Mobile Integration
 
+Status: **Implemented and validated locally on 2026-10-15; deployed APK verification pending.** Backend commit `afa6573` is pushed and adds published quiz reads, protected manual quiz CRUD, pagination, answer/curriculum validation, transactional audit logs and sanitized optional test-attempt reporting. The APK now uses secure backend administrator sessions, a controlled quiz console, typed API adapters and a Play entry point for shared practice quizzes with bundled fallback. Learner profiles, settings, vocabulary, progress, rewards, rankings and profile photos remain on the device. Deferred Firebase admin routes, cloud sync, remote asset listeners and AI generation are bypassed in the controlled build.
+
+Validation passed: backend typecheck/lint/build and 18 tests; frontend typecheck/lint, six API integration tests, architecture-boundary validation, active-learning validation (247 topics), asset-resolution validation, and Android bundle export (7,555 modules, 400 assets). The bundle export is not an installable APK or device test. See `docs/phase-3-api-integration.md` for configuration, the admin workflow, dependency limitations and remaining device checks. The real PostgreSQL migration/restore gate from Phase 2 remains open.
+
 ### Objective
 
 Replace only the Firebase operations required by the APK while preserving local learner functionality when the service is sleeping or unavailable.

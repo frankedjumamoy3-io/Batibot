@@ -1,7 +1,10 @@
+import { USE_NODE_BACKEND } from "@/src/config/backend";
+
 const DEFAULT_GEMINI_QUIZ_ENDPOINT =
   "https://us-central1-batibot-app-e3cc9.cloudfunctions.net/generateQuizDraft";
 
 export function getGeminiQuizDraftEndpoint() {
+  if (USE_NODE_BACKEND) return "";
   return process.env.EXPO_PUBLIC_GEMINI_QUIZ_ENDPOINT || DEFAULT_GEMINI_QUIZ_ENDPOINT;
 }
 
@@ -12,6 +15,7 @@ export async function requestGeminiQuizDraft({
   body: unknown;
   token: string | null;
 }) {
+  if (USE_NODE_BACKEND) throw new Error("AI generation is disabled for controlled testing.");
   return fetch(getGeminiQuizDraftEndpoint(), {
     method: "POST",
     headers: {

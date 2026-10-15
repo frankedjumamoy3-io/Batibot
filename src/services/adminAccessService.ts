@@ -1,4 +1,5 @@
 import { isAllowedAdminEmail } from "@/src/config/admin";
+import { USE_NODE_BACKEND } from "@/src/config/backend";
 import { isAdminProfile } from "@/src/data/repositories/user-profile-repository";
 import type { UserProfile } from "@/src/types/user";
 
@@ -7,7 +8,7 @@ export function canAccessAdminRoute(profile: UserProfile | null | undefined) {
     return false;
   }
 
-  return isAdminProfile(profile) && isAllowedAdminEmail(profile.email);
+  return isAdminProfile(profile) && (USE_NODE_BACKEND || isAllowedAdminEmail(profile.email));
 }
 
 export function requireAdmin(profile: UserProfile | null | undefined) {

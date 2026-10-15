@@ -6,6 +6,8 @@ import {
 } from "firebase/firestore";
 
 import { db } from "@/src/config/firebase";
+import { USE_NODE_BACKEND } from "@/src/config/backend";
+import { listApiQuizzes } from "@/src/data/repositories/api-quiz-repository";
 import { withQuizContentStudyRequirements } from "@/src/data/quiz/study-requirements";
 import {
   QUIZ_INTERACTION_TYPES,
@@ -566,6 +568,18 @@ export function subscribeToPublishedCuratedQuizPresets(
   } = {},
   onError?: (error: Error) => void
 ) {
+  if (USE_NODE_BACKEND) {
+    const controller = new AbortController();
+    onChange([]); // The caller merges bundled presets with this optional list.
+    void listApiQuizzes(false, controller.signal).then(items => {
+      if (controller.signal.aborted) return;
+      const quizzes = items.map(item => normalizeCuratedQuiz(item.id, item as unknown as JsonRecord))
+        .filter((quiz): quiz is CuratedQuiz => !!quiz)
+        .filter(quiz => (!filters.gradeLevel || quiz.gradeLevel === filters.gradeLevel) && (!filters.worldId || quiz.worldId === filters.worldId) && (!filters.topicId || quiz.topicId === filters.topicId) && (!filters.phase || quiz.phase === filters.phase));
+      onChange(quizzes.map(convertCuratedQuizToPreset));
+    }).catch(() => { if (!controller.signal.aborted) onChange([]); });
+    return () => controller.abort();
+  }
   return onSnapshot(
     query(collection(db, "curatedQuizzes"), where("status", "==", "published")),
     (snapshot) => {

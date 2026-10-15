@@ -4,6 +4,8 @@ BatiBot is a personal, mobile-first gamified learning application for Preschool,
 
 ## Official Documentation
 
+Controlled APK testing now uses the Node/Express backend in the sibling `Batibot-backend` repository. See [the five-phase migration plan](docs/mobile-apk-backend-migration-plan.md) and [Phase 3 integration guide](docs/phase-3-api-integration.md) for the active deployment path. Learner data remains local; Firebase, AI and upload descriptions below document retained project capabilities outside this controlled release.
+
 - Official Chapter I source: `docs/chapter-1-introduction.md`
 - Chapter I system alignment audit: `docs/chapter-1-system-alignment-audit.md`
 - Admin Play Content Control Center: `docs/admin-play-content-control-center.md`

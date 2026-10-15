@@ -1,6 +1,7 @@
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 
 import { db } from "@/src/config/firebase";
+import { USE_NODE_BACKEND } from "@/src/config/backend";
 import type { LearnerProgressState } from "@/src/domain/entities/learner-progress";
 import {
   getSecureJsonItem,
@@ -25,6 +26,7 @@ export async function saveLocalLearnerProgress(
 }
 
 export async function loadCloudLearnerProgress(userId: string) {
+  if (USE_NODE_BACKEND) return null;
   const progressSnapshot = await getDoc(doc(db, "users", userId));
   return progressSnapshot.exists() ? progressSnapshot.data() : null;
 }
@@ -33,6 +35,7 @@ export async function saveCloudLearnerProgress(
   userId: string,
   progress: Partial<LearnerProgressState>
 ) {
+  if (USE_NODE_BACKEND) return;
   await setDoc(
     doc(db, "users", userId),
     {
