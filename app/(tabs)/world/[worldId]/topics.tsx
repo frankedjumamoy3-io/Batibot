@@ -25,6 +25,7 @@ import {
   isTopicUnlocked,
   isWorldUnlocked,
 } from "@/src/utils/learningProgressUtils";
+import { playTapFeedback } from "@/src/services/soundEffectsService";
 
 function getParamValue(value?: string | string[]) {
   return Array.isArray(value) ? value[0] : value;
@@ -128,7 +129,10 @@ export default function WorldTopicsScreen() {
             <Pressable
               accessibilityLabel="Back to Play"
               accessibilityRole="button"
-              onPress={() => router.replace(APP_ROUTES.tabs.play)}
+              onPress={() => {
+                void playTapFeedback();
+                router.replace(APP_ROUTES.tabs.play);
+              }}
               style={styles.backButton}
             >
               <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
@@ -156,6 +160,7 @@ export default function WorldTopicsScreen() {
                     accessibilityRole="button"
                     disabled={!unlocked}
                     onPress={() => {
+                      void playTapFeedback();
                       router.push({
                         pathname: APP_ROUTES.lesson.topic as never,
                         params: { topicId: topic.id },

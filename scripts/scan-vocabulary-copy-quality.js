@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 
 const rootDir = path.resolve(__dirname, "..");
-const copyListPath = path.join(rootDir, "docs", "vocabulary-word-copy-list.md");
+const copyListPath = path.resolve(rootDir, "..", "docs", "vocabulary-word-copy-list.md");
 
 const genericMeaningPatterns = [
   /^A creature learners can identify/u,

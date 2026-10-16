@@ -27,6 +27,13 @@ import { BatiBotAssetImage } from "@/components/assets/batibot-asset-image";
 import { BatibotAssetCard } from "@/components/common/BatibotAssetCard";
 import { LiveArrowMatchingBoard } from "@/src/components/common/LiveArrowMatchingBoard";
 import { PlaySettingsMenu } from "@/components/profile/play-settings-menu";
+import {
+  playCelebrateFeedback,
+  playSuccessFeedback,
+  playTapFeedback,
+  playWrongFeedback,
+} from "@/src/services/soundEffectsService";
+
 import { TappableReadingText } from "@/src/components/reading/TappableReadingText";
 import {
   StandardChoiceGrid,
@@ -278,6 +285,8 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
+
+const CONTINUE_PLAY_BANNER = require("@/assets/images/mascot/continue-play-banner.jpg");
 
 const animalSoundPlayers: Partial<Record<string, AudioPlayer>> = {};
 
@@ -6408,14 +6417,20 @@ export default function PlayScreen() {
     }
 
     const topics = getWorldTopics(world);
-    const topicIndex = routedTopicId
-      ? topics.findIndex(
-          (topic) => getWorldTopicRewardId(world.id, topic.title) === routedTopicId
-        )
-      : 0;
-
-    if (topicIndex < 0) {
-      return;
+    let topicIndex = 0;
+    if (routedTopicId) {
+      const target = routedTopicId.toLowerCase().trim();
+      const matchIndex = topics.findIndex((topic) => {
+        const rewardId = getWorldTopicRewardId(world.id, topic.title).toLowerCase();
+        const title = topic.title.toLowerCase();
+        const topicWithId = topic as { id?: string };
+        return (
+          rewardId === target ||
+          title === target ||
+          Boolean(topicWithId.id && topicWithId.id.toLowerCase() === target)
+        );
+      });
+      topicIndex = matchIndex >= 0 ? matchIndex : 0;
     }
 
     handledRouteKeyRef.current = routeKey;
@@ -6437,6 +6452,12 @@ export default function PlayScreen() {
       worldId: activeWorld.id,
       xp: stageOverride === "Challenge" ? 4 : 2,
     });
+
+    if (stageOverride === "Challenge" || stageOverride === "Reward") {
+      playCelebrateFeedback();
+    } else {
+      playSuccessFeedback();
+    }
   }
 
   function recordPlayAnalytics(
@@ -6444,6 +6465,11 @@ export default function PlayScreen() {
     correct: boolean,
     attempts = 1
   ) {
+    if (correct) {
+      playSuccessFeedback();
+    } else {
+      playWrongFeedback();
+    }
     if (!profile || !activeWorld || !activeTopicForReward || !activeRewardId) {
       return;
     }
@@ -6687,10 +6713,28 @@ export default function PlayScreen() {
       return;
     }
 
+    void playTapFeedback();
+
+    if (usesTopicLessonFlow(world)) {
+      setActiveWorld(world);
+      setActiveTopicIndex(null);
+      resetStageActivity();
+      setStepIndex(0);
+      return;
+    }
+
     router.push({
       pathname: APP_ROUTES.tabs.worldTopics as never,
       params: { worldId: world.id },
     });
+  }
+
+  function launchActivity(world: CurriculumWorld, topicIndex = 0) {
+    void playTapFeedback();
+    setActiveWorld(world);
+    setActiveTopicIndex(topicIndex);
+    resetStageActivity();
+    setStepIndex(0);
   }
 
   function closeWorld() {
@@ -6958,6 +7002,7 @@ export default function PlayScreen() {
         ) : (
           <WorldMap
             curriculumWorlds={curriculum.worlds}
+            onLaunchActivity={launchActivity}
             onOpenWorld={openWorld}
             progress={progress}
             unlockedWorldCount={unlockedWorldCount}
@@ -6970,11 +7015,13 @@ export default function PlayScreen() {
 
 function WorldMap({
   curriculumWorlds,
+  onLaunchActivity,
   onOpenWorld,
   progress,
   unlockedWorldCount,
 }: {
   curriculumWorlds: CurriculumWorld[];
+  onLaunchActivity: (world: CurriculumWorld, topicIndex: number) => void;
   onOpenWorld: (world: CurriculumWorld, locked: boolean) => void;
   progress: ReturnType<typeof useLearnerProgress>["progress"];
   unlockedWorldCount: number;
@@ -6989,6 +7036,38 @@ function WorldMap({
   const imageHeight = nodeWidth * 0.74;
   const earnedStars =
     progress.completedQuizIds.length + progress.claimedWorldRewardIds.length;
+
+  const activePlayInfo = useMemo(() => {
+    for (let wIndex = 0; wIndex < curriculumWorlds.length; wIndex++) {
+      if (wIndex >= unlockedWorldCount) break;
+      const w = curriculumWorlds[wIndex];
+      const topics = getWorldTopics(w);
+      const uncompletedIndex = topics.findIndex((t) => {
+        const rewardId = getWorldTopicRewardId(w.id, t.title);
+        return !progress.masteredTopics[rewardId];
+      });
+      if (uncompletedIndex >= 0) {
+        return {
+          world: w,
+          topicIndex: uncompletedIndex,
+          topic: topics[uncompletedIndex],
+          completedCount: uncompletedIndex,
+          totalTopics: topics.length,
+          isCompleted: false,
+        };
+      }
+    }
+    const w0 = curriculumWorlds[0] ?? { id: "default", title: "Learning Adventure", topics: [] };
+    const t0 = getWorldTopics(w0);
+    return {
+      world: w0,
+      topicIndex: 0,
+      topic: t0[0],
+      completedCount: t0.length,
+      totalTopics: t0.length,
+      isCompleted: true,
+    };
+  }, [curriculumWorlds, progress.masteredTopics, unlockedWorldCount]);
 
   return (
     <>
@@ -7016,6 +7095,41 @@ function WorldMap({
           { paddingBottom: bottomMapPadding, paddingHorizontal: mapPadding },
         ]}
       >
+        {/* Continue Journey / Latest Activity Hero Card */}
+        <View style={heroCardStyles.container}>
+          <ImageBackground
+            source={CONTINUE_PLAY_BANNER}
+            resizeMode="cover"
+            style={heroCardStyles.banner}
+            imageStyle={heroCardStyles.bannerImage}
+          >
+            <View style={heroCardStyles.scrim}>
+              <View style={heroCardStyles.headerBadge}>
+                <Ionicons name="sparkles" size={13} color="#FBBF24" />
+                <Text style={heroCardStyles.headerBadgeText}>
+                  {activePlayInfo.isCompleted ? "PAGSUSURI AT PAGSASANAY" : "KASALUKUYANG ARALIN · LATEST"}
+                </Text>
+              </View>
+
+              <Text numberOfLines={1} style={heroCardStyles.worldName}>
+                {activePlayInfo.world.title}
+              </Text>
+              <Text numberOfLines={1} style={heroCardStyles.topicName}>
+                {activePlayInfo.topic?.title ?? "Pagsisimula"}
+              </Text>
+
+              <AnimatedButton
+                accessibilityLabel="Magpatuloy sa Laro"
+                onPress={() => onLaunchActivity(activePlayInfo.world, activePlayInfo.topicIndex)}
+                style={heroCardStyles.playButton}
+              >
+                <Ionicons name="play" size={22} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={heroCardStyles.playButtonText}>MAGLARO NA (PLAY NOW)</Text>
+              </AnimatedButton>
+            </View>
+          </ImageBackground>
+        </View>
+
         <AnimatedButton
           accessibilityLabel="Open practice quizzes"
           onPress={() => router.push("/(tabs)/quiz")}
@@ -36561,6 +36675,83 @@ const lessonStyles = StyleSheet.create({
     flex: 1,
     paddingBottom: 122,
     paddingTop: 14,
+  },
+});
+
+const heroCardStyles = StyleSheet.create({
+  container: {
+    borderRadius: 20,
+    elevation: 4,
+    marginBottom: 16,
+    overflow: "hidden",
+    shadowColor: "#4C1D95",
+    shadowOffset: { height: 4, width: 0 },
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    width: "100%",
+  },
+  banner: {
+    minHeight: 180,
+    width: "100%",
+  },
+  bannerImage: {
+    borderRadius: 20,
+  },
+  scrim: {
+    backgroundColor: "rgba(30, 27, 75, 0.65)",
+    borderRadius: 20,
+    flex: 1,
+    justifyContent: "space-between",
+    padding: 16,
+  },
+  headerBadge: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    borderRadius: 999,
+    flexDirection: "row",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  headerBadgeText: {
+    color: "#FBBF24",
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 0.5,
+  },
+  worldName: {
+    color: "#C4B5FD",
+    fontSize: 13,
+    fontWeight: "800",
+    marginTop: 6,
+    textTransform: "uppercase",
+  },
+  topicName: {
+    color: "#FFFFFF",
+    fontSize: 22,
+    fontWeight: "900",
+    marginBottom: 12,
+  },
+  playButton: {
+    alignItems: "center",
+    backgroundColor: "#0CC978",
+    borderRadius: 14,
+    elevation: 3,
+    flexDirection: "row",
+    justifyContent: "center",
+    paddingVertical: 12,
+    shadowColor: "#000000",
+    shadowOffset: { height: 2, width: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    width: "100%",
+  },
+  playButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "900",
+    letterSpacing: 0.5,
   },
 });
 

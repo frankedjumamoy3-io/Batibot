@@ -16,6 +16,7 @@ import {
   type PreschoolWorldProgress,
 } from "@/src/services/preschoolWorldProgressService";
 import { isLessonTopicCompleteForUnlock } from "@/src/utils/lessonProgression";
+import { playTapFeedback } from "@/src/services/soundEffectsService";
 
 type PreschoolWorldScreenProps = {
   config: PreschoolStageWorldConfig;
@@ -88,7 +89,10 @@ export function PreschoolWorldScreen({ config }: PreschoolWorldScreenProps) {
           <Pressable
             accessibilityLabel="Back to Play"
             accessibilityRole="button"
-            onPress={() => router.replace(APP_ROUTES.tabs.play)}
+            onPress={() => {
+              void playTapFeedback();
+              router.replace(APP_ROUTES.tabs.play);
+            }}
             style={styles.backButton}
           >
             <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
@@ -117,6 +121,7 @@ export function PreschoolWorldScreen({ config }: PreschoolWorldScreenProps) {
                 disabled={!unlocked}
                 key={topic.id}
                 onPress={() => {
+                  void playTapFeedback();
                   router.push({
                     pathname: APP_ROUTES.lesson.topic as never,
                     params: { topicId: getLearningTopicId(config.worldId, topic.label) },

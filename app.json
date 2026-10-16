@@ -2,6 +2,7 @@
   "expo": {
     "name": "BatiBot",
     "slug": "batibot",
+    "owner": "orlanestoces-team",
     "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -70,7 +71,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "2c9086fb-4769-46d7-91fd-56b80c3337e6"
+        "projectId": "43c809ce-c249-493a-a16e-094df3868034"
       }
     }
   }

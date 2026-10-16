@@ -9,6 +9,10 @@
       "distribution": "internal"
     },
     "preview": {
+      "environment": "preview",
+      "env": {
+        "EXPO_PUBLIC_ENABLE_QA_MODE": "true"
+      },
       "android": {
         "buildType": "apk"
       },

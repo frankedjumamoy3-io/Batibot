@@ -66,8 +66,10 @@ const markdown = [
   "",
 ].join("\n");
 
+const documentationDir = path.resolve(rootDir, "..", "docs");
+fs.mkdirSync(documentationDir, { recursive: true });
 fs.writeFileSync(
-  path.join(rootDir, "docs", "vocabulary-word-copy-list.md"),
+  path.join(documentationDir, "vocabulary-word-copy-list.md"),
   markdown,
   "utf8"
 );

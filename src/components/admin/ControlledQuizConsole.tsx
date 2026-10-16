@@ -24,7 +24,11 @@ function Action({ title, onPress, disabled = false }: { title: string; onPress: 
 function Field({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return <View style={styles.field}><Text>{label}</Text><TextInput accessibilityLabel={label} style={styles.input} value={value} onChangeText={onChange} multiline /></View>;
 }
-export function ControlledQuizConsole() {
+export function ControlledQuizConsole({
+  embedded = false,
+}: {
+  embedded?: boolean;
+} = {}) {
   const { user, endSession } = useAuthSession();
   const [quizzes, setQuizzes] = useState<CuratedQuiz[]>([]);
   const [logs, setLogs] = useState<AdminActivityLog[]>([]);
@@ -59,11 +63,18 @@ export function ControlledQuizConsole() {
   function questionChange(index: number, patch: Partial<MultipleChoiceQuestion>) {
     edit({ questions: draft.questions.map((q, i) => i === index ? { ...q, ...patch } as MultipleChoiceQuestion : q) });
   }
-  return <SafeAreaView style={styles.screen}>
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <Text style={styles.heading}>BatiBot quiz console</Text>
-      <Text>Controlled testing · Learner data stays on the device. Remote uploads and AI generation are disabled.</Text>
-      <View style={styles.row}><Action title="Refresh" disabled={busy} onPress={() => { void run(refresh); }} /><Action title="New quiz" disabled={busy} onPress={newQuiz} /><Action title="Sign out" disabled={busy} onPress={() => { void run(async () => { await endSession(); router.replace("/(auth)/login"); }); }} /></View>
+
+  const innerContent = (
+    <View style={embedded ? styles.embeddedContent : styles.content}>
+      <Text style={styles.heading}>BatiBot Quiz Console</Text>
+      <Text>Node API & PostgreSQL · Learner data stays local. Remote uploads and AI generation are disabled.</Text>
+      <View style={styles.row}>
+        <Action title="Refresh" disabled={busy} onPress={() => { void run(refresh); }} />
+        <Action title="New quiz" disabled={busy} onPress={newQuiz} />
+        {!embedded ? (
+          <Action title="Sign out" disabled={busy} onPress={() => { void run(async () => { await endSession(); router.replace("/(auth)/login"); }); }} />
+        ) : null}
+      </View>
       {message ? <Text accessibilityRole="alert" style={styles.message}>{message}</Text> : null}
       <View style={styles.card}>
         <Text style={styles.title}>{selected ? `Edit: ${selected.title}` : "Create a quiz"}</Text>
@@ -100,12 +111,27 @@ export function ControlledQuizConsole() {
         </View>
       </View>)}
       <Text style={styles.title}>Recent activity</Text>{logs.map(log => <Text key={log.id}>{log.actionType} · {log.timestamp ? new Date(log.timestamp).toLocaleString() : ""}</Text>)}
-    </ScrollView>
-  </SafeAreaView>;
+    </View>
+  );
+
+  if (embedded) {
+    return innerContent;
+  }
+
+  return (
+    <SafeAreaView style={styles.screen}>
+      <ScrollView contentContainerStyle={styles.scrollWrap} keyboardShouldPersistTaps="handled">
+        {innerContent}
+      </ScrollView>
+    </SafeAreaView>
+  );
 }
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#F7F3FF" }, content: { padding: 18, paddingBottom: 48, gap: 16 },
-  heading: { fontSize: 26, fontWeight: "800", color: "#4C1D95" }, title: { fontSize: 18, fontWeight: "700" },
+  screen: { flex: 1, backgroundColor: "#F7F3FF" },
+  scrollWrap: { flexGrow: 1 },
+  content: { padding: 18, paddingBottom: 48, gap: 16 },
+  embeddedContent: { padding: 0, gap: 16 },
+  heading: { fontSize: 24, fontWeight: "800", color: "#4C1D95" }, title: { fontSize: 18, fontWeight: "700" },
   card: { backgroundColor: "white", borderRadius: 16, padding: 16, gap: 12 }, row: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 },
   button: { backgroundColor: "#6D28D9", borderRadius: 12, padding: 12, minHeight: 48, justifyContent: "center", margin: 2 }, buttonText: { color: "white", fontWeight: "600" }, disabled: { opacity: 0.45 },
   field: { gap: 6 }, input: { borderColor: "#C4B5FD", borderWidth: 1, padding: 12, minHeight: 48, borderRadius: 10, color: "#111827" },

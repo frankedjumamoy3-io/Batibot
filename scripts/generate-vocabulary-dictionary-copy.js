@@ -11,7 +11,9 @@ const outputPath = path.join(
   "vocabulary",
   "dictionary-copy-overrides.ts"
 );
-const reportPath = path.join(rootDir, "docs", "vocabulary-dictionary-copy-report.md");
+const documentationDir = path.resolve(rootDir, "..", "docs");
+const reportPath = path.join(documentationDir, "vocabulary-dictionary-copy-report.md");
+fs.mkdirSync(documentationDir, { recursive: true });
 const apiBaseUrl = "https://api.dictionaryapi.dev/api/v2/entries/en";
 const requestDelayMs = 90;
 
