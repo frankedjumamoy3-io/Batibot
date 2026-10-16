@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from "expo-audio";
-import { router, Tabs, useLocalSearchParams } from "expo-router";
+import { router, Tabs, useLocalSearchParams, useNavigation } from "expo-router";
 import * as Speech from "expo-speech";
 import type { ExpoSpeechRecognitionOptions } from "expo-speech-recognition";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -1629,14 +1629,7 @@ function getTopicItem(
 }
 
 function getWorldTopics(world: CurriculumWorld) {
-  const topics = world.topics.length ? world.topics : [];
-
-  if (!world.id.startsWith("grade1-")) {
-    return topics;
-  }
-
-  // TODO: Re-enable Grade 1 challenge topics after normal topics are polished.
-  return topics.filter((topic) => !isStandaloneGrade1ChallengeTopic(topic.title));
+  return world.topics.length ? world.topics : [];
 }
 
 function getNextTopicForWorld(
@@ -1644,10 +1637,6 @@ function getNextTopicForWorld(
   currentTopicIndex: number
 ): CurriculumTopic | null {
   return getWorldTopics(world)[currentTopicIndex + 1] ?? null;
-}
-
-function isStandaloneGrade1ChallengeTopic(topicTitle: string) {
-  return /\b(challenge|mastery|review)\b/i.test(topicTitle);
 }
 
 function getTopicChoices(
@@ -6188,9 +6177,47 @@ function getRuntimeAdvancedActivityKind(
   return getGrade3RuntimeActivityKind(worldId) ?? getTopicAdvancedActivityKind(topic);
 }
 
+function getActivePlayInfo(
+  curriculumWorlds: CurriculumWorld[],
+  unlockedWorldCount: number,
+  masteredTopics: Record<string, unknown>
+) {
+  for (let wIndex = 0; wIndex < curriculumWorlds.length; wIndex++) {
+    if (wIndex >= unlockedWorldCount) break;
+    const w = curriculumWorlds[wIndex];
+    const topics = getWorldTopics(w);
+    const uncompletedIndex = topics.findIndex((t) => {
+      const rewardId = getWorldTopicRewardId(w.id, t.title);
+      return !masteredTopics[rewardId];
+    });
+    if (uncompletedIndex >= 0) {
+      return {
+        world: w,
+        topicIndex: uncompletedIndex,
+        topic: topics[uncompletedIndex],
+        completedCount: uncompletedIndex,
+        totalTopics: topics.length,
+        isCompleted: false,
+      };
+    }
+  }
+  const w0 = curriculumWorlds[0] ?? { id: "default", title: "Learning Adventure", topics: [] };
+  const t0 = getWorldTopics(w0);
+  return {
+    world: w0,
+    topicIndex: 0,
+    topic: t0[0],
+    completedCount: t0.length,
+    totalTopics: t0.length,
+    isCompleted: true,
+  };
+}
+
 export default function PlayScreen() {
+  const navigation = useNavigation();
   const { profile, user } = useCurrentUserProfile();
   const routeParams = useLocalSearchParams<{
+    autoLaunch?: string | string[];
     topicId?: string | string[];
     worldId?: string | string[];
   }>();
@@ -6729,13 +6756,13 @@ export default function PlayScreen() {
     });
   }
 
-  function launchActivity(world: CurriculumWorld, topicIndex = 0) {
+  const launchActivity = useCallback((world: CurriculumWorld, topicIndex = 0) => {
     void playTapFeedback();
     setActiveWorld(world);
     setActiveTopicIndex(topicIndex);
     resetStageActivity();
     setStepIndex(0);
-  }
+  }, []);
 
   function closeWorld() {
     setActiveWorld(null);
@@ -6747,6 +6774,31 @@ export default function PlayScreen() {
       router.replace(APP_ROUTES.tabs.play);
     }
   }
+
+  const lastHandledAutoLaunchRef = useRef<string | null>(null);
+  const autoLaunchParam = getRouteParamValue(routeParams.autoLaunch);
+
+  useEffect(() => {
+    if (!autoLaunchParam || lastHandledAutoLaunchRef.current === autoLaunchParam) {
+      return;
+    }
+    lastHandledAutoLaunchRef.current = autoLaunchParam;
+    if (!activeWorld) {
+      const info = getActivePlayInfo(curriculum.worlds, unlockedWorldCount, progress.masteredTopics);
+      launchActivity(info.world, info.topicIndex);
+    }
+  }, [activeWorld, autoLaunchParam, curriculum.worlds, launchActivity, progress.masteredTopics, unlockedWorldCount]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("tabPress" as never, () => {
+      if (!activeWorld) {
+        const info = getActivePlayInfo(curriculum.worlds, unlockedWorldCount, progress.masteredTopics);
+        launchActivity(info.world, info.topicIndex);
+      }
+    });
+
+    return unsubscribe;
+  }, [activeWorld, curriculum.worlds, launchActivity, navigation, progress.masteredTopics, unlockedWorldCount]);
 
   function chooseTopic(index: number) {
     if (!activeWorld) {
@@ -7038,35 +7090,7 @@ function WorldMap({
     progress.completedQuizIds.length + progress.claimedWorldRewardIds.length;
 
   const activePlayInfo = useMemo(() => {
-    for (let wIndex = 0; wIndex < curriculumWorlds.length; wIndex++) {
-      if (wIndex >= unlockedWorldCount) break;
-      const w = curriculumWorlds[wIndex];
-      const topics = getWorldTopics(w);
-      const uncompletedIndex = topics.findIndex((t) => {
-        const rewardId = getWorldTopicRewardId(w.id, t.title);
-        return !progress.masteredTopics[rewardId];
-      });
-      if (uncompletedIndex >= 0) {
-        return {
-          world: w,
-          topicIndex: uncompletedIndex,
-          topic: topics[uncompletedIndex],
-          completedCount: uncompletedIndex,
-          totalTopics: topics.length,
-          isCompleted: false,
-        };
-      }
-    }
-    const w0 = curriculumWorlds[0] ?? { id: "default", title: "Learning Adventure", topics: [] };
-    const t0 = getWorldTopics(w0);
-    return {
-      world: w0,
-      topicIndex: 0,
-      topic: t0[0],
-      completedCount: t0.length,
-      totalTopics: t0.length,
-      isCompleted: true,
-    };
+    return getActivePlayInfo(curriculumWorlds, unlockedWorldCount, progress.masteredTopics);
   }, [curriculumWorlds, progress.masteredTopics, unlockedWorldCount]);
 
   return (

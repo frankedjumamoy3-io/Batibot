@@ -66,6 +66,8 @@ export type AdminTopicDraft = {
   stages: AdminStageDraft[];
   status: AdminTopicDraftStatus;
   submittedAt?: string;
+  approvedAt?: string;
+  publishedAt?: string;
   templateSnapshot?: WorldTopicTemplate;
   topicId: string;
   topicSlug: string;

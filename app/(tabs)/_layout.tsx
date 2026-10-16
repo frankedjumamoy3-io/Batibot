@@ -10,7 +10,6 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppLoadingScreen } from "@/components/common/app-loading-screen";
-import { TestModeBadge } from "@/components/learner/test-mode-badge";
 import { useCurrentUserProfile } from "@/src/presentation/hooks/use-current-user-profile";
 import { SYSTEM_COPY } from "@/src/content/system";
 import { APP_ROUTES } from "@/src/navigation/routes";
@@ -82,7 +81,6 @@ export default function TabLayout() {
 
               return (
                 <View style={[styles.tabBar, { pointerEvents: "box-none" }]}>
-                  <TestModeBadge />
                   <View style={styles.tabBarTrack}>
                     {VISIBLE_TAB_SCREENS.map((screen) => {
                       const routeIndex = state.routes.findIndex(
@@ -114,6 +112,11 @@ export default function TabLayout() {
 
                             if (!focused && !event.defaultPrevented) {
                               navigation.navigate(route.name, route.params);
+                            } else if (focused && (screen.name === "play" || screen.title === "Play")) {
+                              navigation.navigate(route.name, {
+                                ...(route.params as Record<string, unknown> | undefined),
+                                autoLaunch: String(Date.now()),
+                              });
                             }
                           }}
                           style={styles.tabButtonSlot}

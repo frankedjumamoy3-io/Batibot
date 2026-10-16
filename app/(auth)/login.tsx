@@ -34,10 +34,6 @@ import {
   isValidEmail,
 } from "@/src/screens/auth/auth.content";
 import { onboardingAuthStyles as styles } from "@/src/screens/auth/onboarding-auth.styles";
-import {
-  buildTestLearnerSessionInput,
-  isTestAccountModeAvailable,
-} from "@/src/services/testAccountService";
 import type { LearnerGradeLevel } from "@/src/types/user";
 
 const BATIBOT_LOGO = AUTH_ASSETS.batibotLogo;
@@ -84,7 +80,6 @@ export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const { height, width } = useWindowDimensions();
   const { startLearnerSession } = useCurrentUserProfile();
-  const testAccountAvailable = isTestAccountModeAvailable();
   const [username, setUsername] = useState("");
   const [yearLevel, setYearLevel] = useState<LearnerGradeLevel | "">("");
   const [adminMode, setAdminMode] = useState(false);
@@ -156,17 +151,6 @@ export default function LoginScreen() {
         return;
       }
 
-      router.replace(APP_ROUTES.tabs.play);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function openTestAccount() {
-    setLoading(true);
-
-    try {
-      await startLearnerSession(buildTestLearnerSessionInput("Preschool"));
       router.replace(APP_ROUTES.tabs.play);
     } finally {
       setLoading(false);
@@ -351,17 +335,6 @@ export default function LoginScreen() {
                 />
               </Pressable>
             </View>
-            {testAccountAvailable ? (
-              <Pressable
-                disabled={loading}
-                onPress={openTestAccount}
-                style={styles.mockupTestButton}
-              >
-                <Text style={styles.mockupTestButtonText}>
-                  Open Test Account
-                </Text>
-              </Pressable>
-            ) : null}
           </View>
         )}
 

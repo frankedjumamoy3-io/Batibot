@@ -130,8 +130,10 @@ export async function updateTopicDraft(
 ): Promise<AdminTopicDraft> {
   requireAdmin(adminProfile);
   const current = await getTopicDraft(draftId, adminProfile);
-  if (current.status === "published") throw new Error("Published topic drafts are read-only.");
-  assertPhase2Transition(current.status, patch.status);
+  if (current.status === "published" && patch.status !== "draft") {
+    throw new Error("Unpublish the topic draft before editing.");
+  }
+  assertValidTopicTransition(current.status, patch.status);
   const now = new Date().toISOString();
   const next: AdminTopicDraft = {
     ...current,
@@ -207,6 +209,82 @@ export async function submitTopicDraftForReview(
   return updateTopicDraft(draftId, { status: "inReview", submittedAt: new Date().toISOString() }, adminProfile);
 }
 
+export async function approveTopicDraft(
+  draftId: string,
+  adminProfile: UserProfile | null | undefined
+): Promise<AdminTopicDraft> {
+  requireAdmin(adminProfile);
+  const draft = await getTopicDraft(draftId, adminProfile);
+  if (draft.status !== "inReview") {
+    throw new Error("Only drafts awaiting review can be approved.");
+  }
+  return updateTopicDraft(
+    draftId,
+    { approvedAt: new Date().toISOString(), status: "approved" },
+    adminProfile
+  );
+}
+
+export async function rejectTopicDraft(
+  draftId: string,
+  rejectionNotes: string,
+  adminProfile: UserProfile | null | undefined
+): Promise<AdminTopicDraft> {
+  requireAdmin(adminProfile);
+  const draft = await getTopicDraft(draftId, adminProfile);
+  if (draft.status !== "inReview") {
+    throw new Error("Only drafts awaiting review can be rejected.");
+  }
+  if (!rejectionNotes.trim()) {
+    throw new Error("Rejection notes are required.");
+  }
+  return updateTopicDraft(
+    draftId,
+    {
+      adminNotes: rejectionNotes.trim(),
+      status: "rejected",
+    },
+    adminProfile
+  );
+}
+
+export async function publishTopicDraft(
+  draftId: string,
+  adminProfile: UserProfile | null | undefined
+): Promise<AdminTopicDraft> {
+  requireAdmin(adminProfile);
+  const draft = await getTopicDraft(draftId, adminProfile);
+  if (draft.status !== "approved") {
+    throw new Error("Only approved drafts can be published.");
+  }
+  return updateTopicDraft(
+    draftId,
+    {
+      publishedAt: new Date().toISOString(),
+      status: "published",
+    },
+    adminProfile
+  );
+}
+
+export async function unpublishTopicDraft(
+  draftId: string,
+  adminProfile: UserProfile | null | undefined
+): Promise<AdminTopicDraft> {
+  requireAdmin(adminProfile);
+  const draft = await getTopicDraft(draftId, adminProfile);
+  if (draft.status !== "published") {
+    throw new Error("Only published topics can be unpublished.");
+  }
+  return updateTopicDraft(
+    draftId,
+    {
+      status: "draft",
+    },
+    adminProfile
+  );
+}
+
 async function buildExistingTopicStages(input: CreateTopicDraftInput, topicId: string) {
   const metadata = await Promise.all(
     CONTENT_CURATION_STAGE_TYPES.map((stageType) =>
@@ -245,10 +323,17 @@ function validateCreateInput(input: CreateTopicDraftInput) {
   if (input.mode === "editExisting" && !input.sourceTopicId?.trim()) throw new Error("Choose an existing topic.");
 }
 
-function assertPhase2Transition(from: AdminTopicDraftStatus, to?: AdminTopicDraftStatus) {
+function assertValidTopicTransition(from: AdminTopicDraftStatus, to?: AdminTopicDraftStatus) {
   if (!to || to === from) return;
-  const allowed = (from === "draft" && to === "inReview") || (from === "rejected" && to === "draft");
-  if (!allowed) throw new Error(`Phase 2 cannot move a draft from ${from} to ${to}.`);
+  const allowedTransitions: Record<AdminTopicDraftStatus, AdminTopicDraftStatus[]> = {
+    approved: ["published", "draft"],
+    draft: ["inReview"],
+    inReview: ["approved", "rejected", "draft"],
+    published: ["draft"],
+    rejected: ["draft"],
+  };
+  const valid = allowedTransitions[from]?.includes(to);
+  if (!valid) throw new Error(`Cannot transition topic draft from ${from} to ${to}.`);
 }
 
 function fromFirestoreDraft(id: string, data: Record<string, unknown>): AdminTopicDraft {
@@ -266,6 +351,8 @@ function fromFirestoreDraft(id: string, data: Record<string, unknown>): AdminTop
     stages: refreshStageCompleteness(toStages(data.stages)),
     status: toStatus(data.status),
     submittedAt: stringOrUndefined(data.submittedAt),
+    approvedAt: stringOrUndefined(data.approvedAt),
+    publishedAt: stringOrUndefined(data.publishedAt),
     templateSnapshot:
       data.templateSnapshot && typeof data.templateSnapshot === "object"
         ? data.templateSnapshot as AdminTopicDraft["templateSnapshot"]

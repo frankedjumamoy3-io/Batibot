@@ -19,7 +19,15 @@ import {
   type AdminTopicDraft,
 } from "@/src/domain/admin/topic-draft";
 import { useCurrentUserProfile } from "@/src/presentation/hooks/use-current-user-profile";
-import { getTopicDraft, submitTopicDraftForReview, updateTopicDraft } from "@/src/services/admin/adminTopicDraftService";
+import {
+  approveTopicDraft,
+  getTopicDraft,
+  publishTopicDraft,
+  rejectTopicDraft,
+  submitTopicDraftForReview,
+  unpublishTopicDraft,
+  updateTopicDraft,
+} from "@/src/services/admin/adminTopicDraftService";
 import { validateDraftStageAssets } from "@/src/services/admin/adminAssetService";
 
 export default function AdminTopicEditorScreen() {
@@ -39,6 +47,8 @@ export default function AdminTopicEditorScreen() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [allowLeave, setAllowLeave] = useState(false);
+  const [rejectionNotes, setRejectionNotes] = useState("");
+  const [showRejectBox, setShowRejectBox] = useState(false);
   const isDirty = Boolean(draft && JSON.stringify(draft) !== savedSnapshot);
   const completeness = useMemo(() => draft ? getDraftCompleteness(draft) : null, [draft]);
   const readOnly = Boolean(draft && !["draft", "rejected"].includes(draft.status));
@@ -120,6 +130,72 @@ export default function AdminTopicEditorScreen() {
       setMessage("Draft submitted for review.");
     } catch (submitError) {
       setMessage(submitError instanceof Error ? submitError.message : "The draft could not be submitted.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleApprove() {
+    if (!draft || !id) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      const approved = await approveTopicDraft(id, profile);
+      setDraft(approved);
+      setSavedSnapshot(JSON.stringify(approved));
+      setMessage("Topic draft approved successfully.");
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "The draft could not be approved.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleReject() {
+    if (!draft || !id) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      const rejected = await rejectTopicDraft(id, rejectionNotes.trim() || "Changes requested by reviewer.", profile);
+      setDraft(rejected);
+      setSavedSnapshot(JSON.stringify(rejected));
+      setShowRejectBox(false);
+      setRejectionNotes("");
+      setMessage("Topic draft rejected and returned to draft.");
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "The draft could not be rejected.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handlePublish() {
+    if (!draft || !id) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      const published = await publishTopicDraft(id, profile);
+      setDraft(published);
+      setSavedSnapshot(JSON.stringify(published));
+      setMessage("Topic draft published to curriculum catalog.");
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "The draft could not be published.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleUnpublish() {
+    if (!draft || !id) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      const unpublished = await unpublishTopicDraft(id, profile);
+      setDraft(unpublished);
+      setSavedSnapshot(JSON.stringify(unpublished));
+      setMessage("Topic draft unpublished and returned to draft status.");
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "The draft could not be unpublished.");
     } finally {
       setBusy(false);
     }
@@ -259,15 +335,76 @@ export default function AdminTopicEditorScreen() {
             <Text style={styles.completeness}>{completeness?.completeStages ?? 0}/{completeness?.totalStages ?? 6} stages complete</Text>
             {completeness?.missingFields.slice(0, 8).map((item) => <Text key={item} style={styles.missing}>- {item}</Text>)}
             {message ? <Text style={adminStyles.mutedText}>{message}</Text> : null}
-            {readOnly ? (
-              <Text style={styles.readOnly}>This draft status is read-only until the review workflow changes it.</Text>
-            ) : (
-              <>
+
+            {draft.status === "draft" ? (
+              <View style={{ gap: 8, marginTop: 10 }}>
                 <AdminButton disabled={busy || !isDirty} label={busy ? "Saving..." : "Save Draft"} onPress={() => { void saveDraft(); }} />
-                <AdminButton disabled={busy || !completeness?.canSubmitForReview || draft.status !== "draft"} label="Submit for Review" tone="secondary" onPress={() => { void submitForReview(); }} />
-              </>
-            )}
-            <AdminButton label="Back" tone="secondary" onPress={() => router.back()} />
+                <AdminButton disabled={busy || !completeness?.canSubmitForReview} label="Submit for Review" tone="secondary" onPress={() => { void submitForReview(); }} />
+              </View>
+            ) : null}
+
+            {draft.status === "rejected" ? (
+              <View style={{ gap: 8, marginTop: 10 }}>
+                {draft.adminNotes ? <Text style={styles.missing}>Feedback: {draft.adminNotes}</Text> : null}
+                <AdminButton disabled={busy || !isDirty} label={busy ? "Saving..." : "Save Changes"} onPress={() => { void saveDraft(); }} />
+                <AdminButton disabled={busy || !completeness?.canSubmitForReview} label="Re-submit for Review" tone="secondary" onPress={() => { void submitForReview(); }} />
+              </View>
+            ) : null}
+
+            {draft.status === "inReview" ? (
+              <View style={{ gap: 8, marginTop: 10 }}>
+                <Text style={styles.statusNote}>Draft is currently in the review queue.</Text>
+                <AdminButton disabled={busy} label={busy ? "Approving..." : "Approve Draft"} onPress={() => { void handleApprove(); }} />
+                <AdminButton disabled={busy} label={showRejectBox ? "Cancel Rejection" : "Reject Draft"} tone="danger" onPress={() => setShowRejectBox((v) => !v)} />
+                {showRejectBox ? (
+                  <View style={{ gap: 8, marginTop: 6 }}>
+                    <Text style={styles.label}>Rejection Feedback</Text>
+                    <TextInput
+                      multiline
+                      placeholder="Enter feedback or reasons for rejection..."
+                      placeholderTextColor="#94A3B8"
+                      style={mergeAdminStyles(styles.input, styles.multiline)}
+                      value={rejectionNotes}
+                      onChangeText={setRejectionNotes}
+                    />
+                    <AdminButton disabled={busy} label="Confirm Rejection" tone="danger" onPress={() => { void handleReject(); }} />
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+
+            {draft.status === "approved" ? (
+              <View style={{ gap: 8, marginTop: 10 }}>
+                <Text style={styles.statusNote}>Draft is approved and ready for publishing.</Text>
+                <AdminButton disabled={busy} label={busy ? "Publishing..." : "Publish to Curriculum"} onPress={() => { void handlePublish(); }} />
+                <AdminButton disabled={busy} label={showRejectBox ? "Cancel" : "Return to Review / Reject"} tone="danger" onPress={() => setShowRejectBox((v) => !v)} />
+                {showRejectBox ? (
+                  <View style={{ gap: 8, marginTop: 6 }}>
+                    <Text style={styles.label}>Notes</Text>
+                    <TextInput
+                      multiline
+                      placeholder="Explain why this approved draft is being rejected..."
+                      placeholderTextColor="#94A3B8"
+                      style={mergeAdminStyles(styles.input, styles.multiline)}
+                      value={rejectionNotes}
+                      onChangeText={setRejectionNotes}
+                    />
+                    <AdminButton disabled={busy} label="Reject Draft" tone="danger" onPress={() => { void handleReject(); }} />
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+
+            {draft.status === "published" ? (
+              <View style={{ gap: 8, marginTop: 10 }}>
+                <Text style={styles.statusNote}>This topic is published and active in the curriculum catalog.</Text>
+                <AdminButton disabled={busy} label={busy ? "Unpublishing..." : "Unpublish (Return to Draft)"} tone="secondary" onPress={() => { void handleUnpublish(); }} />
+              </View>
+            ) : null}
+
+            <View style={{ marginTop: 8 }}>
+              <AdminButton label="Back" tone="secondary" onPress={() => router.back()} />
+            </View>
           </AdminCard>
         </View>
       </View>
@@ -312,4 +449,5 @@ const styles = {
   stageTabText: { color: "#4C1D95", fontSize: 12, fontWeight: "900" as const },
   stageTabTextActive: { color: "#FFFFFF" },
   stageTabs: { gap: 8 },
+  statusNote: { backgroundColor: "#F5F3FF", borderRadius: 8, color: "#4C1D95", fontSize: 12, fontWeight: "800" as const, padding: 10, marginVertical: 6 },
 };
