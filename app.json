@@ -3,7 +3,7 @@
     "name": "BatiBot",
     "slug": "batibot",
     "owner": "orlanestoces-team",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "batibot",
@@ -19,7 +19,7 @@
     },
     "android": {
       "package": "com.iansa.batibot",
-      "versionCode": 3,
+      "versionCode": 4,
       "adaptiveIcon": {
         "backgroundColor": "#0799AD",
         "foregroundImage": "./assets/images/android-icon-foreground.png"
