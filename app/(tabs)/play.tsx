@@ -1,3 +1,4 @@
+import { PictureWordMatchingBoard } from "@/components/learner/picture-word-matching-board";
 import { Ionicons } from "@expo/vector-icons";
 import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from "expo-audio";
 import { router, Tabs, useLocalSearchParams, useNavigation } from "expo-router";
@@ -13628,7 +13629,7 @@ const GRADE1_SEMANTIC_ASSET_KEYS: Record<string, string> = {
   "slow": "adjective.slow",
   "start": "word.similar.start",
   "start line": "word.similar.start",
-  "teacher": "person.girl",
+  "teacher": "person.teacher",
   "walking child": "adjective.slow",
   "write": "action.write",
   "writing child": "action.write",
@@ -14089,7 +14090,7 @@ function getGrade1PlayActivityConfig(
     "grade1-word-kingdom:Opposite Words": {
       type: "image-word-drag",
       title: "Opposite Picture Match",
-      instruction: "Drag each picture to its opposite word.",
+      instruction: "Match the pictures to Fast, Slow, Happy, and Sad.",
       pairs: [
         { imageLabel: "running child", word: "Fast" },
         { imageLabel: "walking child", word: "Slow" },
@@ -14100,16 +14101,16 @@ function getGrade1PlayActivityConfig(
       hint: "Opposite words have different meanings.",
     },
     "grade1-word-kingdom:Similar Words": {
-      type: "image-word-drag",
-      title: "Similar Picture Match",
-      instruction: "Drag each picture to a word with the same meaning.",
+      type: "match",
+      title: "Similar Word Match",
+      instruction: "Match words with the same meaning.",
       pairs: [
-        { imageLabel: "smiling child", word: "Glad" },
-        { imageLabel: "happy child", word: "Happy" },
-        { imageLabel: "begin line", word: "Begin" },
-        { imageLabel: "start line", word: "Start" },
+        { left: "Happy", right: "Glad" },
+        { left: "Fast", right: "Quick" },
+        { left: "Small", right: "Tiny" },
+        { left: "Begin", right: "Start" },
       ],
-      success: "You matched the similar word pictures.",
+      success: "You matched words with similar meanings.",
       hint: "Similar words mean almost the same thing.",
     },
     "grade1-reading:I": {
@@ -15297,8 +15298,8 @@ function getGrade1ReadingQuestLesson(topicLabel: string): Grade1ReadingQuestLess
     return {
       chooseAnswer: "I run fast.",
       chooseChoices: ["I run fast.", "The dog jumps.", "The ball is big.", "I read."],
-      chooseImageLabel: "boy jump",
-      choosePrompt: "Find the sentence.",
+      chooseImageLabel: "running child",
+      choosePrompt: "Which sentence matches the picture?",
       lookCards: sentenceCards,
       tapCards: sentenceCards,
       tryAnswer: "Sentence",
@@ -15895,131 +15896,35 @@ function Grade1PlayActivity({
       pairs.map((pair) => pair.word),
       `${attemptSeed}-image-word-targets`
     );
-    const matchedCount = Object.keys(matchedDragWords).length;
 
     return (
-      <>
-        {renderActivitySection(
-          `Matched ${matchedCount} of ${pairs.length}`,
-          <View style={lessonStyles.grade1PictureWordImageGrid}>
-            {pairs.map((pair) => {
-              const done = Boolean(matchedDragWords[pair.imageLabel]);
-
-              return (
-                <Grade1DraggablePictureCard
-                  asset={resolveAsset({
-                    stage: "PLAY",
-                    topic: pair.imageLabel,
-                    worldId: "grade1-word-kingdom",
-                  })}
-                  disabled={completed || !!outcome || done}
-                  key={pair.imageLabel}
-                  label={pair.imageLabel}
-                  onDrop={(absoluteX, absoluteY) => {
-                    if (done || !pair.word) {
-                      return false;
-                    }
-
-                    const targetWord = words.find((word) => {
-                      const bounds = dragDropBounds.current[word];
-                      return Boolean(
-                        bounds &&
-                          absoluteX >= bounds.x &&
-                          absoluteX <= bounds.x + bounds.width &&
-                          absoluteY >= bounds.y &&
-                          absoluteY <= bounds.y + bounds.height
-                      );
-                    });
-
-                    if (!targetWord) {
-                      return false;
-                    }
-
-                    const scoreKey = `image-word:${pair.imageLabel}`;
-                    const correct = normalizeChoiceLabel(targetWord) === normalizeChoiceLabel(pair.word);
-                    const nextAttempts = getFirstAttemptsAfter(scoreKey, correct);
-
-                    recordAnswerResult(scoreKey, correct, targetWord, pair.word);
-
-                    if (!correct) {
-                      setFeedback(STANDARD_STAGE_FEEDBACK.wrong);
-                      if (!submitMode) {
-                        failAttemptNow(
-                          "image-word-drag",
-                          scoreKey,
-                          targetWord,
-                          pair.word,
-                          pairs.length
-                        );
-                      }
-                      return false;
-                    }
-
-                    const nextMatchedWords = {
-                      ...matchedDragWords,
-                      [pair.imageLabel]: targetWord,
-                    };
-
-                    setMatchedDragWords(nextMatchedWords);
-                    setFeedback(`${pair.word} matches!`);
-
-                    if (!submitMode && Object.keys(nextMatchedWords).length >= pairs.length) {
-                      finishAttempt(
-                        "image-word-drag",
-                        Object.values(nextAttempts).filter(Boolean).length,
-                        pairs.length
-                      );
-                    }
-
-                    return true;
-                  }}
-                />
-              );
-            })}
-          </View>
-        )}
-        {renderActivitySection(
-          "Drop on the word",
-          <View style={lessonStyles.grade1PictureWordTargetGrid}>
-            {words.map((word) => {
-              const filled = Object.values(matchedDragWords).some((matchedWord) =>
-                normalizeChoiceLabel(matchedWord) === normalizeChoiceLabel(word)
-              );
-
-              return (
-                <View
-                  key={word}
-                  ref={(node) => {
-                    dragDropRefs.current[word] = node;
-                  }}
-                  onLayout={() => {
-                    dragDropRefs.current[word]?.measureInWindow((x, y, width, height) => {
-                      dragDropBounds.current[word] = { height, width, x, y };
-                    });
-                  }}
-                  style={[
-                    lessonStyles.grade1PictureWordDropZone,
-                    { borderColor: filled ? "#22C55E" : meta.accent },
-                    filled && lessonStyles.grade1PictureWordDropZoneFilled,
-                  ]}
-                >
-                  <Text
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                    style={[
-                      lessonStyles.grade1PictureWordDropText,
-                      { color: filled ? "#166534" : meta.accent },
-                    ]}
-                  >
-                    {word}
-                  </Text>
-                  {filled ? <Ionicons name="checkmark-circle" size={18} color="#22C55E" /> : null}
-                </View>
-              );
-            })}
-          </View>
-        )}
-      </>
+      <PictureWordMatchingBoard
+        key={attemptSeed}
+        pairs={pairs}
+        words={words}
+        matched={matchedDragWords}
+        disabled={completed || Boolean(outcome)}
+        onMatch={(imageLabel, targetWord) => {
+          const pair = pairs.find((item) => item.imageLabel === imageLabel);
+          if (!pair || matchedDragWords[imageLabel]) return false;
+          const scoreKey = `image-word:${imageLabel}`;
+          const correct = normalizeChoiceLabel(targetWord) === normalizeChoiceLabel(pair.word);
+          const nextAttempts = getFirstAttemptsAfter(scoreKey, correct);
+          recordAnswerResult(scoreKey, correct, targetWord, pair.word);
+          if (!correct) {
+            setFeedback(STANDARD_STAGE_FEEDBACK.wrong);
+            if (!submitMode) failAttemptNow("image-word-drag", scoreKey, targetWord, pair.word, pairs.length);
+            return false;
+          }
+          const nextMatchedWords = { ...matchedDragWords, [imageLabel]: targetWord };
+          setMatchedDragWords(nextMatchedWords);
+          setFeedback(`${pair.word} matches!`);
+          if (!submitMode && Object.keys(nextMatchedWords).length >= pairs.length) {
+            finishAttempt("image-word-drag", Object.values(nextAttempts).filter(Boolean).length, pairs.length);
+          }
+          return true;
+        }}
+      />
     );
   }
 
@@ -29071,81 +28976,6 @@ function getFamilyPanelIcon(label: string): keyof typeof Ionicons.glyphMap {
   if (/push|fight|grab|mess|hide|leave/.test(value)) return "close-circle";
 
   return "shapes";
-}
-
-function Grade1DraggablePictureCard({
-  asset,
-  disabled,
-  label,
-  onDrop,
-}: {
-  asset: ReturnType<typeof resolveAsset>;
-  disabled: boolean;
-  label: string;
-  onDrop: (absoluteX: number, absoluteY: number) => boolean;
-}) {
-  const translateX = useSharedValue(0);
-  const translateY = useSharedValue(0);
-  const scale = useSharedValue(1);
-  const dragging = useSharedValue(0);
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponder: (_, gesture) =>
-          !disabled && (Math.abs(gesture.dx) > 3 || Math.abs(gesture.dy) > 3),
-        onPanResponderGrant: () => {
-          dragging.value = 1;
-          scale.value = withSpring(1.07, { damping: 12, stiffness: 190 });
-        },
-        onPanResponderMove: (_, gesture) => {
-          translateX.value = gesture.dx;
-          translateY.value = gesture.dy;
-        },
-        onPanResponderRelease: (_, gesture) => {
-          onDrop(gesture.moveX, gesture.moveY);
-          dragging.value = 0;
-          scale.value = withSpring(1, { damping: 12, stiffness: 190 });
-          translateX.value = withSpring(0, { damping: 14, stiffness: 210 });
-          translateY.value = withSpring(0, { damping: 14, stiffness: 210 });
-        },
-        onPanResponderTerminate: () => {
-          dragging.value = 0;
-          scale.value = withSpring(1);
-          translateX.value = withSpring(0);
-          translateY.value = withSpring(0);
-        },
-      }),
-    [disabled, dragging, onDrop, scale, translateX, translateY]
-  );
-  const animatedStyle = useAnimatedStyle(() => ({
-    elevation: dragging.value ? 10 : 3,
-    opacity: disabled ? 0.45 : 1,
-    shadowOpacity: dragging.value ? 0.28 : 0.12,
-    transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-      { scale: scale.value },
-    ],
-    zIndex: dragging.value ? 30 : 1,
-  }));
-
-  return (
-    <Animated.View
-      {...panResponder.panHandlers}
-      accessibilityLabel={`Drag picture for ${label}`}
-      accessibilityRole="button"
-      style={[lessonStyles.grade1PictureWordDragCard, animatedStyle]}
-    >
-      <BatiBotAssetImage
-        asset={asset}
-        hideLabel
-        iconColor="#6D28FF"
-        imageStyle={lessonStyles.grade1PictureWordDragImage}
-        placeholderStyle={lessonStyles.grade1PictureWordDragImage}
-        style={lessonStyles.grade1PictureWordDragImage}
-      />
-    </Animated.View>
-  );
 }
 
 function Grade2DraggableTextCard({

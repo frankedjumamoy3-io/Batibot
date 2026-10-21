@@ -1,4 +1,6 @@
 import type { ImageSourcePropType } from "react-native";
+import { findLessonConcept } from "@/src/data/assets/lesson-concept-assets";
+import { resolveAsset } from "@/src/services/assets/assetResolver";
 
 import {
   batibotAssetRegistry,
@@ -276,6 +278,16 @@ function chooseAsset(params: ResolveBatibotAssetParams) {
 export function resolveBatibotAsset(
   params: ResolveBatibotAssetParams
 ): BatibotAssetResolution {
+  const concept = findLessonConcept(params.key ?? "") ?? findLessonConcept(params.label);
+  if (concept) {
+    const resolved = resolveAsset({ topic: concept.aliases[0], worldId: params.world });
+    if (resolved.localSource) return {
+      source: resolved.localSource,
+      label: params.label,
+      isFallback: false,
+      matchedKey: concept.key,
+    };
+  }
   const match = chooseAsset(params);
 
   if (match?.source) {

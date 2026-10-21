@@ -14,6 +14,7 @@ import {
 } from "@/src/data/play-assets";
 import type { LearnerGradeLevel } from "@/src/types/user";
 import { getFallbackIconForLabel } from "@/src/data/assets/fallback-icon-map";
+import { LESSON_CONCEPT_ASSETS } from "@/src/data/assets/lesson-concept-assets";
 
 export type BatiBotAssetProvider =
   | "custom"
@@ -807,6 +808,21 @@ function buildManifest() {
       tags: ["preschool", "star", "counter", "reward"],
     }
   );
+
+  LESSON_CONCEPT_ASSETS.forEach((concept) => {
+    assets.push({
+      id: `concept_${concept.key}`,
+      assetType: "topic",
+      category: "illustration",
+      altText: `${concept.label} learning picture`,
+      label: concept.label,
+      iconName: concept.iconName,
+      localSource: concept.source,
+      provider: "custom",
+      status: "approved",
+      tags: ["concept", ...concept.aliases],
+    });
+  });
 
   return assets;
 }

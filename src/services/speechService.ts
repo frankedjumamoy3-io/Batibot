@@ -1,4 +1,5 @@
 import * as Speech from "expo-speech";
+import { isLearningAudioEnabled } from "@/src/services/audioService";
 
 type SpeakTextOptions = {
   grade?: "grade1" | "grade2" | "grade3";
@@ -6,7 +7,7 @@ type SpeakTextOptions = {
 
 export async function stopSpeaking(): Promise<void> {
   try {
-    Speech.stop();
+    await Speech.stop();
   } catch (error) {
     console.warn("Speech stop is unavailable.", error);
   }
@@ -15,12 +16,13 @@ export async function stopSpeaking(): Promise<void> {
 export async function speakText(text: string, options: SpeakTextOptions = {}): Promise<void> {
   const message = text.trim();
 
-  if (!message) {
+  if (!message || !isLearningAudioEnabled()) {
     return;
   }
 
   try {
     await stopSpeaking();
+    if (!isLearningAudioEnabled()) return;
     Speech.speak(message, {
       language: "en-US",
       pitch: 1,

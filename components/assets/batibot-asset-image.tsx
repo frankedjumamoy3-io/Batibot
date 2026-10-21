@@ -70,7 +70,7 @@ export function BatiBotAssetImage({
     getAssetRegistryVersion,
     getAssetRegistryVersion
   );
-  const currentAsset = refreshFromRegistry ? resolveAsset(asset.id) : asset;
+  const currentAsset = refreshFromRegistry ? resolveAsset(asset.resolutionRequest ?? asset.id) : asset;
 
   useEffect(() => {
     setImageFailed(false);

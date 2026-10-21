@@ -23,6 +23,8 @@ import {
   saveUserSettings,
 } from "@/src/data/repositories/user-settings-repository";
 import { useAuthSession } from "@/src/store/auth-session";
+import { setLearningAudioEnabled } from "@/src/services/audioService";
+import { stopSpeaking } from "@/src/services/speechService";
 
 const STORAGE_KEY_PREFIX = "batibot:user-settings";
 const GUEST_STORAGE_KEY = `${STORAGE_KEY_PREFIX}:guest`;
@@ -50,6 +52,11 @@ export function UserSettingsProvider({ children }: { children: ReactNode }) {
   const [storageKey, setStorageKey] = useState(GUEST_STORAGE_KEY);
   const [userId, setUserId] = useState<string | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
+
+  useEffect(() => {
+    setLearningAudioEnabled(settings.soundEnabled);
+    if (!settings.soundEnabled) void stopSpeaking();
+  }, [settings.soundEnabled]);
 
   useEffect(() => {
     setIsHydrated(false);

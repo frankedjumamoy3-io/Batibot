@@ -1,4 +1,5 @@
 import type { ImageSourcePropType } from "react-native";
+import { LESSON_CONCEPT_ASSETS } from "@/src/data/assets/lesson-concept-assets";
 
 import {
   COUNTING_FOREST_ASSETS,
@@ -622,4 +623,11 @@ export const batibotAssetRegistry: Record<string, BatibotAssetMeta> = {
     tags: ["placeholder", "grade3"],
     source: PLAY_BACKGROUNDS["Grade 3"],
   }),
+  ...Object.fromEntries(LESSON_CONCEPT_ASSETS.map((concept) => [concept.key, asset({
+    key: concept.key,
+    label: concept.label,
+    grade: "shared",
+    tags: concept.aliases,
+    source: concept.source,
+  })])),
 };

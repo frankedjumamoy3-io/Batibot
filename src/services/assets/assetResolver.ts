@@ -11,6 +11,7 @@ import {
   type BatiBotAssetType,
 } from "@/src/data/assets/batibot-asset-manifest";
 import { fallbackIconMap, getFallbackIconForLabel } from "@/src/data/assets/fallback-icon-map";
+import { findLessonConcept } from "@/src/data/assets/lesson-concept-assets";
 import {
   getCurriculumPlaceholderAsset,
   getEducationalFallbackActivity,
@@ -53,6 +54,7 @@ export enum AssetStatus {
 }
 
 export type ResolvedBatiBotAsset = {
+  resolutionRequest?: AssetResolutionRequest;
   altText: string;
   assetType: BatiBotAssetType;
   firebasePath?: string;
@@ -281,7 +283,18 @@ function findRegisteredAsset(request: AssetResolutionRequest) {
         (asset.status === "approved" || asset.localSource)
     );
     if (exactTopic) return exactTopic;
+  }
 
+  // Concrete word pictures are shared across grades. Resolve an exact concept
+  // before falling back to a topic icon or decorative world artwork.
+  const concept = request.topic ? findLessonConcept(request.topic) : undefined;
+  if (concept) {
+    const conceptId = `concept_${concept.key}`;
+    const conceptAsset = assets.find((asset) => asset.id === conceptId && isLearnerUsableAsset(asset));
+    if (conceptAsset) return conceptAsset;
+  }
+
+  if (topicId) {
     const topicPlaceholder = assets.find(
       (asset) => asset.topicId === topicId && isLearnerUsableAsset(asset) && Boolean(asset.iconName)
     );
@@ -347,6 +360,7 @@ export function resolveAsset(
         request.topic ?? request.topicId ?? "Learning picture"
       );
 
+  result.resolutionRequest = request;
   assetCache.set(cacheKey, result);
   return result;
 }

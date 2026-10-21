@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from "react";
 import {
   Image,
   Pressable,
@@ -10,6 +11,7 @@ import {
 } from "react-native";
 
 import { resolveBatibotAsset } from "@/src/utils/batibotAssetResolver";
+import { getAssetRegistryVersion, subscribeToAssetRegistryChanges } from "@/src/services/assets/assetResolver";
 import { SHOW_LESSON_LAYOUT_DEBUG } from "@/src/utils/uiDiagnostics";
 
 type BatibotAssetCardProps = {
@@ -49,6 +51,7 @@ export function BatibotAssetCard({
   topic,
   world,
 }: BatibotAssetCardProps) {
+  useSyncExternalStore(subscribeToAssetRegistryChanges, getAssetRegistryVersion, getAssetRegistryVersion);
   const asset = source
     ? {
         isFallback: false,
