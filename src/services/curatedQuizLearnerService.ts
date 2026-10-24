@@ -302,7 +302,7 @@ function normalizeCuratedQuiz(id: string, data: JsonRecord): CuratedQuiz | null 
     createdAt: null,
     createdByEmail: cleanString(data.createdByEmail),
     createdByUid: cleanString(data.createdByUid),
-    createdWith: "gemini",
+    createdWith: data.createdWith === "openai" ? "openai" : data.createdWith === "local-fallback" ? "local-fallback" : "gemini",
     curriculumLevel:
       typeof data.curriculumLevel === "number" && data.curriculumLevel >= 1
         ? data.curriculumLevel

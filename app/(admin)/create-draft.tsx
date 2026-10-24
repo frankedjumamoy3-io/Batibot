@@ -159,7 +159,7 @@ export default function AdminCreateDraftScreen() {
   return (
     <AdminShell
       title="Create Content Draft"
-      subtitle="Structure a lesson, activity, assessment, or stage-content request, let Gemini assist, then review and validate before publishing."
+      subtitle="Structure a lesson, activity, assessment, or stage-content request, let OpenAI assist, then review and validate before publishing."
     >
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 16 }}>
         <View style={{ flex: 2, minWidth: 360 }}>
@@ -243,7 +243,7 @@ export default function AdminCreateDraftScreen() {
             <TextInput
               multiline
               onChangeText={setAdminPrompt}
-              placeholder="Tell Gemini what learning content, activity, question, or instruction should be drafted. Output remains draft-only."
+              placeholder="Tell OpenAI what learning content, activity, question, or instruction should be drafted. Output remains draft-only."
               style={mergeAdminStyles(formStyles.input, { minHeight: 120, textAlignVertical: "top" })}
               value={adminPrompt}
             />
@@ -268,7 +268,7 @@ export default function AdminCreateDraftScreen() {
             <AdminSectionHeader
               eyebrow={metadataBusy ? "Resolving Metadata" : "Resolved Metadata"}
               title={draftMetadata?.worldTitle ?? selectedWorld?.title ?? "Select a world"}
-              subtitle="BatiBot resolves learner-side metadata before Gemini can generate content."
+              subtitle="BatiBot resolves learner-side metadata before OpenAI can generate content."
             />
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
               <AdminStatusBadge label={selectedWorld?.subjectArea ?? "subject"} />

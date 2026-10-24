@@ -7651,6 +7651,7 @@ function WorldLesson({
       gradeLevel,
       stageIndex: stepIndex + 1,
       stageType: publishedStageType,
+      topicId: topic?.title,
       topicTitle: topicLabel,
       totalStages: ACTIVE_LEARNING_PHASES.length,
       worldId: world.id,
@@ -7663,7 +7664,7 @@ function WorldLesson({
     return () => {
       cancelled = true;
     };
-  }, [gradeLevel, publishedStageType, stepIndex, topicLabel, world]);
+  }, [gradeLevel, publishedStageType, stepIndex, topic?.title, topicLabel, world]);
 
   useEffect(() => {
     if (publishedStageContent) {

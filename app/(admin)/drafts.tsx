@@ -53,7 +53,7 @@ export default function AdminDraftsScreen() {
               <AdminButton key="open" label={draft.status === "published" ? "View" : "Edit"} onPress={() => router.push({ pathname: "/(admin)/topic-editor/[draftId]", params: { draftId: draft.id } })} />,
             ])}
           />
-          <AdminSectionHeader title="AI Content Drafts" subtitle="Existing Gemini-assisted stage records remain available as a separate draft type." action={<AdminButton label="Create AI Draft" tone="secondary" onPress={() => router.push("/(admin)/create-draft")} />} />
+          <AdminSectionHeader title="AI Content Drafts" subtitle="Existing OpenAI-assisted stage records remain available as a separate draft type." action={<AdminButton label="Create AI Draft" tone="secondary" onPress={() => router.push("/(admin)/create-draft")} />} />
           <AdminTable
             columns={["Topic", "Grade", "World", "Stage", "Kind", "Status", "Action"]}
             emptyTitle="No AI drafts yet"

@@ -130,6 +130,9 @@ export function adaptLegacyContentToSharedRenderer(
 }
 
 function normalizeLegacyAssets(stage: Record<string, unknown>, root: Record<string, unknown>) {
+  const refs = asRecord(stage.assetRefs ?? root.assetRefs);
+  const images = Array.isArray(refs.images) ? refs.images.filter((value): value is string => typeof value === "string") : [];
+  if (images.length) return images.map(assetId => ({ assetId, role: "primaryVisual", type: "image" as const }));
   const uri = stringValue(stage.assetUri ?? root.assetUri);
   const key = stringValue(stage.assetKey ?? root.assetKey);
   if (!uri && !key) return [];

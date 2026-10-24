@@ -1,4 +1,5 @@
 import { USE_NODE_BACKEND } from "@/src/config/backend";
+import { authenticatedRequest } from "@/src/infrastructure/api/session";
 
 const DEFAULT_GEMINI_QUIZ_ENDPOINT =
   "https://us-central1-batibot-app-e3cc9.cloudfunctions.net/generateQuizDraft";
@@ -14,8 +15,12 @@ export async function requestGeminiQuizDraft({
 }: {
   body: unknown;
   token: string | null;
-}) {
-  if (USE_NODE_BACKEND) throw new Error("AI generation is disabled for controlled testing.");
+}): Promise<Pick<Response, "ok" | "json">> {
+  if (USE_NODE_BACKEND) {
+    const isContent = typeof body === "object" && body !== null && "mode" in body && body.mode === "admin-content-draft";
+    const payload = await authenticatedRequest(`/admin/ai/${isContent ? "content" : "quizzes"}`, "POST", body, { timeoutMs: 100000 });
+    return { ok: true, json: async () => payload };
+  }
   return fetch(getGeminiQuizDraftEndpoint(), {
     method: "POST",
     headers: {

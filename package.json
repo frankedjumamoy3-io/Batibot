@@ -4,6 +4,7 @@
   "version": "1.0.3",
   "scripts": {
     "test:api-integration": "node --test scripts/test-api-integration.cjs",
+    "test:admin-ai": "node --test scripts/test-admin-ai.cjs",
     "start": "node ./scripts/start-expo-fixed.js",
     "start:clear": "node ./scripts/start-expo-fixed.js --clear",
     "start:fresh": "node ./scripts/clean-metro-cache.js && node ./scripts/start-expo-fixed.js --clear",
@@ -18,7 +19,7 @@
     "eas-build-pre-install": "node scripts/validate-preview-config.cjs --eas-hook",
     "validate:preview-config": "node scripts/validate-preview-config.cjs",
     "test:preview-config": "node --test scripts/test-preview-config.cjs",
-    "validate:controlled-apk": "npm run typecheck && npm run lint && npm run test:api-integration && npm run test:preview-config && npm run validate:architecture-boundaries && npm run validate:active-learning-framework && npm run validate:asset-resolution",
+    "validate:controlled-apk": "npm run typecheck && npm run lint && npm run test:api-integration && npm run test:admin-ai && npm run test:preview-config && npm run validate:architecture-boundaries && npm run validate:active-learning-framework && npm run validate:asset-resolution",
     "typecheck": "tsc --noEmit",
     "test:lesson-media": "node --test scripts/test-lesson-media.cjs",
     "generate:lesson-sounds": "node scripts/generate-lesson-sounds.cjs",

@@ -1,4 +1,5 @@
 import { batibotAssetRegistry } from "@/src/assets/assetRegistry";
+import { CURRICULUM } from "@/src/data/curriculum/learning-path";
 
 export type GradeLevel =
   | "Preschool"
@@ -428,8 +429,20 @@ const ADMIN_CURRICULUM_METADATA: CurriculumMetadata = {
   version: "2026-07-admin-metadata-v1",
 };
 
+let resolvedCurriculumMetadata: CurriculumMetadata | undefined;
 export function getCurriculumMetadata(): CurriculumMetadata {
-  return ADMIN_CURRICULUM_METADATA;
+  // Keep the authoring guidance, but take world/topic identifiers from the learner curriculum.
+  // The old static examples drifted (for example, "Nouns" versus the actual "Noun" topic).
+  return resolvedCurriculumMetadata ??= {
+    ...ADMIN_CURRICULUM_METADATA,
+    version: "2026-10-learner-curriculum",
+    gradeLevels: CURRICULUM.map(sourceGrade => grade(sourceGrade.gradeLevel, sourceGrade.worlds.map(sourceWorld => {
+      const guidance = ADMIN_CURRICULUM_METADATA.gradeLevels.find(item => item.gradeLevel === sourceGrade.gradeLevel)?.worlds.find(item => item.worldId === sourceWorld.id);
+      const subject: CurriculumSubjectArea = guidance?.subjectArea ??
+        (/reading|story|context/.test(sourceWorld.id) ? "reading" : /number|count|math|shape|pattern|measure|fraction|money|time|clock|division|multiplication|place-value|more-less|big-small/.test(sourceWorld.id) ? "math" : "vocabulary");
+      return world(sourceWorld.id, sourceWorld.title, subject, sourceWorld.topics.map(topic => topic.title));
+    }))),
+  };
 }
 
 export function getGradeMetadata(gradeLevel: GradeLevel): CurriculumGradeMetadata | null {
@@ -773,7 +786,11 @@ export function validateContentDraftAgainstMetadata(
 
   if (metadata.learnerUiSchema.requiresCorrectAnswer) {
     const correctChoices = choices.filter((choice) => choice.isCorrect === true || choice.correct === true);
-    const hasDirectCorrectAnswer = Boolean(record.correctAnswer ?? record.correctAnswerId ?? record.answer);
+    const pairs = Array.isArray(record.items) ? record.items.map(asRecord) : [];
+    const hasMatchingAnswers = record.activityType === "matching" && pairs.length >= 2 &&
+      ["left", "right"].every(side => pairs.every(pair => String(pair[side] ?? "").trim()) &&
+        new Set(pairs.map(pair => String(pair[side]).trim().toLowerCase())).size === pairs.length);
+    const hasDirectCorrectAnswer = Boolean(record.correctAnswer ?? record.correctAnswerId ?? record.answer) || hasMatchingAnswers;
     pushCheck(results, "correct-answer", hasDirectCorrectAnswer || correctChoices.length === 1, "Exactly one correct answer exists for single-answer stages.", "correctAnswer");
   }
 

@@ -12,6 +12,8 @@ import {
 } from "firebase/firestore";
 
 import { db } from "@/src/config/firebase";
+import { USE_NODE_BACKEND } from "@/src/config/backend";
+import { getApiContentDraft, listApiContentDrafts, listApiPublishedContent, publishApiContentDraft, saveApiContentDraft } from "@/src/data/repositories/api-content-repository";
 import {
   canTransitionAdminDraft,
   type AdminDraftStatus as DomainAdminDraftStatus,
@@ -210,7 +212,7 @@ export async function generateAdminContentDraft(
   let status: AdminDraftStatus = "needs_review";
 
   try {
-    const token = user?.getIdToken ? await user.getIdToken() : null;
+    const token = !USE_NODE_BACKEND && user?.getIdToken ? await user.getIdToken() : null;
     const response = await requestGeminiQuizDraft({
       token,
       body: {
@@ -218,6 +220,7 @@ export async function generateAdminContentDraft(
         geminiContentPrompt: buildGeminiContentPrompt(metadata, request),
         geminiDraftPrompt: buildGeminiDraftPrompt(spec),
         gradeLevel: input.gradeLevel,
+        worldId: input.worldId,
         maxExamples: worldMetadata?.maxExamples ?? input.exampleCount,
         metadata,
         mode: "admin-content-draft",
@@ -231,12 +234,14 @@ export async function generateAdminContentDraft(
       },
     });
 
+    if (!response.ok) throw new Error("The AI service could not generate a draft. Please retry.");
     if (response.ok) {
       const payload = (await response.json()) as Record<string, unknown>;
       generatedContent = normalizeGeneratedContent(payload.draft ?? payload.content ?? payload, localContent, metadata);
       status = "ai_generated";
     }
-  } catch {
+  } catch (error) {
+    if (USE_NODE_BACKEND) throw error;
     generatedContent = {
       ...localContent,
       generationNote: "Gemini was unavailable. BatiBot created a safe editable local draft.",
@@ -296,6 +301,7 @@ export async function saveAdminContentDraft(
     id?: string;
   }
 ) {
+  if (USE_NODE_BACKEND) return saveApiContentDraft(draft, draft.id);
   const now = Timestamp.now();
   const localDraft: AdminContentDraft = {
     ...draft,
@@ -332,6 +338,7 @@ export async function updateAdminContentDraft(
   draftId: string,
   patch: Partial<AdminContentDraft>
 ) {
+  if (USE_NODE_BACKEND) return saveApiContentDraft(patch, draftId);
   const existing = await getAdminContentDraft(draftId);
 
   if (
@@ -414,6 +421,7 @@ export async function validateAndSaveDraft(
 }
 
 export async function getAdminContentDraft(draftId: string) {
+  if (USE_NODE_BACKEND) return getApiContentDraft(draftId);
   if (localDrafts.has(draftId)) {
     return localDrafts.get(draftId) ?? null;
   }
@@ -432,6 +440,7 @@ export async function getAdminContentDraft(draftId: string) {
 }
 
 export async function listAdminContentDrafts() {
+  if (USE_NODE_BACKEND) return listApiContentDrafts();
   try {
     const snapshot = await getDocs(
       query(collection(db, CONTENT_DRAFTS_COLLECTION), orderBy("updatedAt", "desc"))
@@ -497,6 +506,7 @@ export function hasBlockingValidationIssues(results: ValidationResult[]) {
 }
 
 export async function approveAdminContentDraft(draft: AdminContentDraft) {
+  if (USE_NODE_BACKEND) draft = await getApiContentDraft(draft.id);
   const validationResults = await validateAdminContentDraft(draft);
 
   if (hasBlockingValidationIssues(validationResults)) {
@@ -517,6 +527,7 @@ export async function publishAdminContentDraft(
   profile: UserProfile | null | undefined
 ) {
   requireAdmin(profile);
+  if (USE_NODE_BACKEND) draft = await getApiContentDraft(draft.id);
 
   if (draft.status !== "approved") {
     throw new Error("Approve the draft before publishing.");
@@ -531,6 +542,8 @@ export async function publishAdminContentDraft(
     });
     throw new Error("Validation must pass before publishing.");
   }
+
+  if (USE_NODE_BACKEND) return publishApiContentDraft(draft.id);
 
   const published: PublishedContentRecord = {
     assetRefs: draft.assetRefs,
@@ -566,6 +579,7 @@ export async function publishAdminContentDraft(
 }
 
 export async function listPublishedContent() {
+  if (USE_NODE_BACKEND) return listApiPublishedContent();
   try {
     const snapshot = await getDocs(
       query(collection(db, PUBLISHED_CONTENT_COLLECTION), orderBy("publishedAt", "desc"))

@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { CURRICULUM } from "@/src/data/curriculum/learning-path";
 import { DEFAULT_REVIEW_CHECKLIST, type CuratedQuiz, type CuratedQuizDraft, type MultipleChoiceQuestion, type QuizReviewChecklist } from "@/src/types/quiz";
-import { archiveQuiz, createQuizDraft, deleteDraft, getAdminActivityLogs, getCuratedQuizzes, publishQuiz, unpublishQuiz, updateQuizDraft, type AdminActivityLog } from "@/src/services/adminQuizService";
+import { archiveQuiz, createQuizDraft, deleteDraft, generateAIQuizDraft, getAdminActivityLogs, getCuratedQuizzes, publishQuiz, unpublishQuiz, updateQuizDraft, type AdminActivityLog } from "@/src/services/adminQuizService";
 import { useAuthSession } from "@/src/store/auth-session";
 
 const CHECK_LABELS: Record<keyof QuizReviewChecklist, string> = {
@@ -37,6 +37,9 @@ export function ControlledQuizConsole({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [preview, setPreview] = useState(false);
+  const [generationPrompt, setGenerationPrompt] = useState("");
+  const [questionCount, setQuestionCount] = useState("4");
+  const [generating, setGenerating] = useState(false);
   const grade = CURRICULUM.find(item => item.gradeLevel === draft.gradeLevel) ?? CURRICULUM[0];
   const world = grade.worlds.find(item => item.id === draft.worldId) ?? grade.worlds[0];
   const editable = draft.questions.every(q => q.type === "multiple-choice");
@@ -64,10 +67,28 @@ export function ControlledQuizConsole({
     edit({ questions: draft.questions.map((q, i) => i === index ? { ...q, ...patch } as MultipleChoiceQuestion : q) });
   }
 
+  async function generate() {
+    const count = Number(questionCount);
+    if (!Number.isInteger(count) || count < 1 || count > 20) { setMessage("Choose between 1 and 20 questions."); return; }
+    setBusy(true); setGenerating(true); setMessage("");
+    try {
+      const generated = await generateAIQuizDraft({
+        topic: draft.topic, ageGroup: draft.ageGroup, category: draft.category, curriculumLevel: draft.curriculumLevel,
+        difficulty: draft.difficulty, learnerLevel: draft.learnerLevel, gradeLevel: draft.gradeLevel,
+        worldId: draft.worldId, topicId: draft.topicId, phase: draft.phase,
+        objective: draft.objective, notes: draft.notes, adminPrompt: generationPrompt,
+        questionCount: count, questionTypes: ["multiple-choice"], rewardXp: draft.rewards.xp,
+      });
+      setSelected(null); setDraft({ ...generated, reviewChecklist: { ...DEFAULT_REVIEW_CHECKLIST }, mobilePreviewChecked: false }); setPreview(false);
+      setMessage(`Generated ${generated.questions.length} questions with AI. Review and edit them, then save the draft.`);
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Could not generate this draft."); }
+    finally { setBusy(false); setGenerating(false); }
+  }
+
   const innerContent = (
     <View style={embedded ? styles.embeddedContent : styles.content}>
       <Text style={styles.heading}>BatiBot Quiz Console</Text>
-      <Text>Node API & PostgreSQL · Learner data stays local. Remote uploads and AI generation are disabled.</Text>
+      <Text>Create quizzes manually or generate an editable AI draft. Review answers and the mobile preview before publishing.</Text>
       <View style={styles.row}>
         <Action title="Refresh" disabled={busy} onPress={() => { void run(refresh); }} />
         <Action title="New quiz" disabled={busy} onPress={newQuiz} />
@@ -76,7 +97,8 @@ export function ControlledQuizConsole({
         ) : null}
       </View>
       {message ? <Text accessibilityRole="alert" style={styles.message}>{message}</Text> : null}
-      <View style={styles.card}>
+      {generating ? <Text accessibilityLiveRegion="polite">Generating questions… This can take up to a minute.</Text> : null}
+      <View style={styles.card} pointerEvents={busy ? "none" : "auto"}>
         <Text style={styles.title}>{selected ? `Edit: ${selected.title}` : "Create a quiz"}</Text>
         <Field label="Title" value={draft.title} onChange={title => edit({ title })} />
         <Text>Grade</Text><View style={styles.row}>{CURRICULUM.map(item => <Action key={item.gradeLevel} title={`${draft.gradeLevel === item.gradeLevel ? "✓ " : ""}${item.gradeLevel}`} onPress={() => { const w = item.worlds[0]; edit({ gradeLevel: item.gradeLevel, learnerLevel: item.gradeLevel, ageGroup: item.gradeLevel, worldId: w.id, topicId: w.topics[0].title, topic: w.topics[0].title }); }} />)}</View>
@@ -86,6 +108,14 @@ export function ControlledQuizConsole({
         <View style={styles.row}>{(["linguistic", "numeric"] as const).map(category => <Action key={category} title={`${draft.category === category ? "✓ " : ""}${category}`} onPress={() => edit({ category })} />)}</View>
         <Field label="Learning objective" value={draft.objective} onChange={objective => edit({ objective })} />
         <Field label="Instructions" value={draft.instructions} onChange={instructions => edit({ instructions })} />
+        <View style={styles.card}>
+          <Text style={styles.title}>AI quiz draft</Text>
+          <Text>Uses the selected grade, world, topic and objective. Creates a new draft for review.</Text>
+          <Field label="Number of questions (1–20)" value={questionCount} onChange={setQuestionCount} />
+          <Field label="Guidance for AI (optional)" value={generationPrompt} onChange={setGenerationPrompt} />
+          <Action title={generating ? "Generating…" : "Generate quiz with AI"} disabled={busy} onPress={() => { void generate(); }} />
+          {draft.createdWith === "gemini" || draft.createdWith === "openai" ? <Text>AI-generated · {draft.modelName ?? (draft.createdWith === "openai" ? "OpenAI" : "Gemini")} · Requires review</Text> : null}
+        </View>
         {!editable ? <Text>This quiz uses an advanced format. Its questions are preserved; use the review controls below.</Text> : draft.questions.map((question, index) => {
           const q = question as MultipleChoiceQuestion;
           return <View key={q.id} style={styles.card}>

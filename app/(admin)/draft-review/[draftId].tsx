@@ -51,8 +51,6 @@ export default function AdminDraftReviewScreen() {
   const [activeTab, setActiveTab] = useState<ReviewTab>("edit");
   const [previewState, setPreviewState] = useState<PreviewState>("default");
   const isNarrow = width < 1040;
-  const canApprove = validationResults.length > 0 && !hasBlockingValidationIssues(validationResults);
-  const canPublish = draft?.status === "approved";
 
   useEffect(() => {
     let mounted = true;
@@ -79,6 +77,8 @@ export default function AdminDraftReviewScreen() {
         setDraft(null);
       }
       setLoaded(true);
+    }).catch((error: unknown) => {
+      if (mounted) { setMessage(error instanceof Error ? error.message : "Could not load the draft."); setLoaded(true); }
     });
 
     return () => {
@@ -94,6 +94,17 @@ export default function AdminDraftReviewScreen() {
     }
   }, [contentText]);
 
+  const hasUnsavedChanges = Boolean(draft && (JSON.stringify(parsedContent) !== JSON.stringify(draft.editedContent) || adminPrompt !== draft.adminPrompt || topicTitle !== draft.topicTitle));
+  const canApprove = !hasUnsavedChanges && draft?.status === "needs_review" && validationResults.length > 0 && !hasBlockingValidationIssues(validationResults);
+  const canPublish = !hasUnsavedChanges && draft?.status === "approved";
+
+  async function perform(action: () => Promise<void>) {
+    setBusy(true); setMessage("");
+    try { await action(); }
+    catch (error) { setMessage(error instanceof Error ? error.message : "The draft could not be saved. Please retry."); }
+    finally { setBusy(false); }
+  }
+
   const contentRecord = asRecord(parsedContent);
   const stageTargets = getAssetTargets(contentRecord);
   const editableStage = getEditableStage(contentRecord, draft?.stageType);
@@ -106,16 +117,17 @@ export default function AdminDraftReviewScreen() {
       return;
     }
 
-    setBusy(true);
-    await updateDraftContent(draftId, parsedContent);
-    const next = await updateAdminContentDraft(draftId, {
-      adminPrompt,
-      assetRefs: getAttachedAssetRefs(parsedContent),
-      topicTitle,
+    await perform(async () => {
+      await updateDraftContent(draftId, parsedContent);
+      const next = await updateAdminContentDraft(draftId, {
+        adminPrompt,
+        assetRefs: getAttachedAssetRefs(parsedContent),
+        topicTitle,
+      });
+      setDraft(next);
+      setValidationResults([]);
+      setMessage("Draft content saved.");
     });
-    setDraft(next);
-    setMessage("Draft content saved.");
-    setBusy(false);
   }
 
   async function validateDraft() {
@@ -124,50 +136,51 @@ export default function AdminDraftReviewScreen() {
       return;
     }
 
-    setBusy(true);
-    await updateAdminContentDraft(draftId, {
-      adminPrompt,
-      assetRefs: getAttachedAssetRefs(parsedContent),
-      topicTitle,
+    await perform(async () => {
+      await updateAdminContentDraft(draftId, {
+        adminPrompt,
+        assetRefs: getAttachedAssetRefs(parsedContent),
+        topicTitle,
+      });
+      const results = await validateAndSaveDraft(draftId, parsedContent);
+      const next = await getAdminContentDraft(draftId);
+      setDraft(next);
+      setValidationResults(results);
+      setMessage(hasBlockingValidationIssues(results) ? "Validation failed." : "Validation passed.");
     });
-    const results = await validateAndSaveDraft(draftId, parsedContent);
-    const next = await getAdminContentDraft(draftId);
-    setDraft(next);
-    setValidationResults(results);
-    setMessage(hasBlockingValidationIssues(results) ? "Validation failed." : "Validation passed.");
-    setBusy(false);
   }
 
   async function submitForConfirmation() {
     if (!draftId || parsedContent === null) return;
 
-    setBusy(true);
-    await saveDraft();
-    await submitDraftForConfirmation(draftId);
-    const next = await getAdminContentDraft(draftId);
-    setDraft(next);
-    setMessage("Draft submitted for confirmation.");
-    setBusy(false);
+    await perform(async () => {
+      await updateDraftContent(draftId, parsedContent);
+      await updateAdminContentDraft(draftId, { adminPrompt, topicTitle });
+      await submitDraftForConfirmation(draftId);
+      const next = await getAdminContentDraft(draftId);
+      setDraft(next);
+      setMessage("Draft submitted for confirmation.");
+    });
   }
 
   async function approveDraft() {
-    if (!draft || parsedContent === null) return;
+    if (!draft || parsedContent === null || !canApprove) return;
 
-    setBusy(true);
-    const next = await approveAdminContentDraft({
-      ...draft,
-      adminPrompt,
-      editedContent: parsedContent,
-      topicTitle,
+    await perform(async () => {
+      const next = await approveAdminContentDraft({
+        ...draft,
+        adminPrompt,
+        editedContent: parsedContent,
+        topicTitle,
+      });
+      setDraft(next);
+      setValidationResults(next.validationResults);
+      setMessage(next.status === "approved" ? "Draft approved." : "Fix validation issues first.");
     });
-    setDraft(next);
-    setValidationResults(next.validationResults);
-    setMessage(next.status === "approved" ? "Draft approved." : "Fix validation issues first.");
-    setBusy(false);
   }
 
   async function publishDraft() {
-    if (!draft) return;
+    if (!draft || !canPublish) return;
 
     setBusy(true);
 
@@ -191,11 +204,11 @@ export default function AdminDraftReviewScreen() {
       return;
     }
 
-    setBusy(true);
-    const next = await rejectAdminContentDraft(draftId, rejectionNotes.trim());
-    setDraft(next);
-    setMessage("Draft rejected with notes.");
-    setBusy(false);
+    await perform(async () => {
+      const next = await rejectAdminContentDraft(draftId, rejectionNotes.trim());
+      setDraft(next);
+      setMessage("Draft rejected with notes.");
+    });
   }
 
   function updateContent(nextContent: unknown) {

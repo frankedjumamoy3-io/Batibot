@@ -76,11 +76,11 @@ export async function logoutApi() {
   await persist(null);
   if (previous) void apiRequest("/auth/logout", { method: "POST", body: { refreshToken: previous.refreshToken } }).catch(() => undefined);
 }
-export async function authenticatedRequest<T>(path: string, method = "GET", body?: unknown): Promise<T> {
+export async function authenticatedRequest<T>(path: string, method = "GET", body?: unknown, options: { timeoutMs?: number; signal?: AbortSignal } = {}): Promise<T> {
   const token = await getApiAccessToken();
-  try { return await apiRequest<T>(path, { method, body, token }); }
+  try { return await apiRequest<T>(path, { ...options, method, body, token }); }
   catch (error) {
     if (!(error instanceof ApiRequestError) || error.status !== 401) throw error;
-    return apiRequest<T>(path, { method, body, token: await getApiAccessToken(true) });
+    return apiRequest<T>(path, { ...options, method, body, token: await getApiAccessToken(true) });
   }
 }

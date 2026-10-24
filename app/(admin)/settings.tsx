@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
 
@@ -15,12 +15,18 @@ import { useCurrentUserProfile } from "@/src/presentation/hooks/use-current-user
 import { APP_ROUTES } from "@/src/navigation/routes";
 import { listGrades, listWorldsByGrade } from "@/src/services/admin/batibotMetadataApi";
 import { clearLocalAdminDraftCache } from "@/src/services/admin/adminContentDraftService";
-import { getAdminSystemStatus } from "@/src/services/admin/adminSystemStatusService";
+import { getAdminSystemStatus, type AdminSystemStatus } from "@/src/services/admin/adminSystemStatusService";
 
 export default function AdminSettingsScreen() {
   const { endSession, profile, user } = useCurrentUserProfile();
   const grades = listGrades();
-  const systemStatus = getAdminSystemStatus();
+  const [systemStatus, setSystemStatus] = useState<AdminSystemStatus | null>(null);
+  const [statusError, setStatusError] = useState("");
+  useEffect(() => {
+    let active = true;
+    void getAdminSystemStatus().then(value => { if (active) setSystemStatus(value); }).catch(() => { if (active) setStatusError("Could not check backend status."); });
+    return () => { active = false; };
+  }, []);
   const [strictness, setStrictness] = useState("standard");
   const [safePublishing, setSafePublishing] = useState(true);
   const [autoSave, setAutoSave] = useState(true);
@@ -54,10 +60,8 @@ export default function AdminSettingsScreen() {
         </View>
         <View style={{ flex: 1, minWidth: 320 }}>
           <AdminCard>
-            <AdminSectionHeader title="System Status" subtitle="Safe fallbacks keep admin routes from crashing." />
-            <StatusLine label="Gemini API" ok={systemStatus.geminiConfigured} />
-            <StatusLine label="Firebase" ok={Boolean(user || profile)} />
-            <StatusLine label="Draft Sync" ok />
+            <AdminSectionHeader title="System Status" subtitle="Configuration reported by the authenticated backend. A live generation request verifies provider access." />
+            {systemStatus ? <><StatusLine label={`${systemStatus.provider === "openai" ? "OpenAI" : "Gemini"} configured`} ok={systemStatus.aiConfigured} /><SettingLine label="AI model" value={systemStatus.model ?? "Unavailable"} /><StatusLine label="Backend connection" ok /></> : <Text>{statusError || "Checking backend…"}</Text>}
           </AdminCard>
         </View>
       </View>

@@ -8,6 +8,7 @@ import {
 
 import { db } from "@/src/config/firebase";
 import { USE_NODE_BACKEND } from "@/src/config/backend";
+import { apiRequest } from "@/src/infrastructure/api/client";
 import type {
   ContentDraftStageType,
   CurriculumContentMetadata,
@@ -31,11 +32,27 @@ export async function getPublishedLearnerStageContent(input: {
   totalStages: number;
   worldId: string;
 }): Promise<PublishedLearnerStageContent | null> {
-  if (USE_NODE_BACKEND || !input.gradeLevel || !input.worldId || !input.topicTitle) {
+  if (!input.gradeLevel || !input.worldId || !input.topicTitle) {
     return null;
   }
 
   try {
+    if (USE_NODE_BACKEND) {
+      const topicKeys = new Set([normalizeKey(input.topicTitle), normalizeKey(input.topicId)].filter(Boolean));
+      let offset: number | null = 0;
+      while (offset !== null) {
+        const page: { items: Record<string, unknown>[]; nextOffset: number | null } = await apiRequest(`/published-content?gradeLevel=${encodeURIComponent(input.gradeLevel)}&worldId=${encodeURIComponent(input.worldId)}&limit=100&offset=${offset}`);
+        for (const data of page.items) {
+          const metadata = toCurriculumContentMetadata(data.metadata);
+          if (!metadata || !matchesTopic(topicKeys, data.topicTitle, metadata) || !hasStageContent(data.content, input.stageType, metadata.stageType)) continue;
+          return { id: String(data.id), assetRefs: toAssetRefs(data.assetRefs), content: data.content,
+            metadata: { ...metadata, stageIndex: input.stageIndex, stageType: input.stageType, totalStages: input.totalStages } };
+        }
+        if (page.nextOffset !== null && page.nextOffset <= offset) return null;
+        offset = page.nextOffset;
+      }
+      return null;
+    }
     const snapshot = await getDocs(
       query(
         collection(db, PUBLISHED_CONTENT_COLLECTION),

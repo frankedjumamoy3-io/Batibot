@@ -66,7 +66,7 @@ import {
 } from "@/src/types/quiz";
 
 const QUIZ_GENERATION_PROMPT_VERSION = "2026-06-challenge-known-content-v3";
-const GEMINI_MODEL_NAME = "gemini-1.5-flash";
+const GEMINI_MODEL_NAME = "server-configured";
 const MIN_QUESTION_QUALITY_SCORE = 0.72;
 const MIN_PUBLISH_QUESTION_QUALITY_SCORE = 0.65;
 const REQUIRED_CHOICE_COUNT = 4;
@@ -464,7 +464,7 @@ function getDefaultLifecycleStatus(
     return "edited";
   }
 
-  return draft.createdWith === "gemini" ? "generated" : "draft";
+  return draft.createdWith === "gemini" || draft.createdWith === "openai" ? "generated" : "draft";
 }
 
 function getStatusForLifecycleStatus(
@@ -2046,7 +2046,7 @@ function normalizeDraft(
       .filter(Boolean)
       .join(" "),
     sourcePrompt: input.adminPrompt.trim(),
-    createdWith: "gemini",
+    createdWith: candidate.createdWith === "openai" ? "openai" : candidate.createdWith === "local-fallback" ? "local-fallback" : "gemini",
     lifecycleStatus: normalizeDraftLifecycleStatus(candidate.lifecycleStatus, "generated"),
     lifecycleLogs: normalizeLifecycleLogs(candidate.lifecycleLogs),
     previewSnapshot: normalizePreviewSnapshot(candidate.previewSnapshot),
@@ -2075,7 +2075,7 @@ function getErrorMessage(payload: unknown) {
     return (payload as JsonRecord).message as string;
   }
 
-  return "The Gemini quiz service could not generate a draft right now.";
+  return "The AI quiz service could not generate a draft right now.";
 }
 
 function buildFallbackOptions(answer: string, index: number, candidateWords: string[] = []) {
@@ -2505,10 +2505,9 @@ export async function generateQuizDraftWithGemini(
   input: GenerateQuizDraftInput,
   user?: Pick<User, "getIdToken">
 ) {
-  if (USE_NODE_BACKEND) return createLocalQuizDraft(input);
-  const token = user ? await user.getIdToken() : null;
+  const token = !USE_NODE_BACKEND && user ? await user.getIdToken() : null;
 
-  let response: Response;
+  let response: Awaited<ReturnType<typeof requestGeminiQuizDraft>>;
 
   try {
     response = await requestGeminiQuizDraft({
@@ -2549,7 +2548,7 @@ export async function generateQuizDraftWithGemini(
       },
     });
   } catch (error) {
-    if (isFetchConnectionError(error)) {
+    if (!USE_NODE_BACKEND && isFetchConnectionError(error)) {
       return createLocalQuizDraft(input);
     }
 
@@ -3069,7 +3068,7 @@ export function validateQuizBeforePublish(
   if (
     quiz.questions.some(
       (question) =>
-        quiz.createdWith === "gemini" &&
+        (quiz.createdWith === "gemini" || quiz.createdWith === "openai") &&
         (!question.learningObjective ||
           !question.targetSkill ||
           !question.reasoningType ||

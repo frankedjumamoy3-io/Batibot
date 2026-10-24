@@ -374,7 +374,7 @@ export interface CuratedQuizDraft {
   instructions: string;
   notes: string;
   sourcePrompt: string;
-  createdWith: "gemini" | "local-fallback";
+  createdWith: "openai" | "gemini" | "local-fallback";
   lifecycleStatus?: DraftLifecycleStatus;
   lifecycleLogs?: AdminDraftLifecycleLog[];
   previewSnapshot?: AdminDraftPreviewSnapshot | null;

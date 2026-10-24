@@ -11,6 +11,7 @@ import {
 } from "react-native";
 
 import { batibotAssetRegistry } from "@/src/assets/assetRegistry";
+import { MatchingMission, type MissionPair } from "./MatchingMission";
 import {
   StandardLessonShell,
   type LessonFeedbackType,
@@ -59,6 +60,12 @@ export type LearnerStageRendererProps = {
 };
 
 export function LearnerStageRenderer(props: LearnerStageRendererProps) {
+  // Reset answers and mission progress when switching a published stage or revising its content.
+  const stage = props.template?.stageType ?? props.stageTemplate?.stageType ?? "LOOK";
+  return <LearnerStageState key={`${stage}:${JSON.stringify(props.content)}`} {...props} />;
+}
+
+function LearnerStageState(props: LearnerStageRendererProps) {
   const {
     accentColor,
     contentStyle,
@@ -77,6 +84,7 @@ export function LearnerStageRenderer(props: LearnerStageRendererProps) {
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null);
   const [tapRevealed, setTapRevealed] = useState(false);
   const [playSubmitted, setPlaySubmitted] = useState(false);
+  const [matchingComplete, setMatchingComplete] = useState(false);
   const template = useMemo(
     () => props.template ?? adaptLegacyTemplateToSharedRenderer(props.stageTemplate ?? {}),
     [props.stageTemplate, props.template]
@@ -106,12 +114,13 @@ export function LearnerStageRenderer(props: LearnerStageRendererProps) {
     selectedCorrect,
     tapRevealed,
   });
-  const actionEnabled = runtime?.primaryActionEnabled ?? getDefaultActionEnabled(
+  const actionEnabled = (runtime?.primaryActionEnabled ?? getDefaultActionEnabled(
     template.stageType,
     feedbackState,
     selectedId,
     selectedCorrect
-  );
+  )) && (template.stageType !== "PLAY" || content.activityType !== "matching" || matchingComplete)
+    && (template.stageType !== "TAP" || tapRevealed || feedbackState === "correct");
 
   function handleChoice(choiceId: string) {
     const choice = content.choices?.find((item) => item.id === choiceId);
@@ -127,6 +136,7 @@ export function LearnerStageRenderer(props: LearnerStageRendererProps) {
   }
 
   function handlePrimaryAction() {
+    if (!actionEnabled) return;
     if (template.stageType === "PLAY" && !playSubmitted && !runtime?.submitted) {
       setPlaySubmitted(true);
       handlers?.onSubmit?.();
@@ -162,6 +172,7 @@ export function LearnerStageRenderer(props: LearnerStageRendererProps) {
       <StageBody
         content={content}
         mode={mode}
+        onMatchComplete={() => { setMatchingComplete(true); handlers?.onMatchComplete?.(content.activityData); }}
         onChoicePress={handleChoice}
         onTapReveal={() => {
           setTapRevealed(true);
@@ -175,10 +186,11 @@ export function LearnerStageRenderer(props: LearnerStageRendererProps) {
   );
 }
 
-function StageBody({ content, mode, onChoicePress, onTapReveal, selectedChoiceId, tapRevealed, template }: {
+function StageBody({ content, mode, onChoicePress, onMatchComplete, onTapReveal, selectedChoiceId, tapRevealed, template }: {
   content: StageTemplateContent;
   mode: StageRenderMode;
   onChoicePress: (choiceId: string) => void;
+  onMatchComplete: () => void;
   onTapReveal: () => void;
   selectedChoiceId: string | null;
   tapRevealed: boolean;
@@ -198,7 +210,7 @@ function StageBody({ content, mode, onChoicePress, onTapReveal, selectedChoiceId
     return (
       <View style={styles.stack}>
         <ReadableCard text={content.passage || content.body || content.activityPrompt} />
-        <ActivityPreview content={content} onChoicePress={onChoicePress} />
+        <ActivityPreview content={content} onChoicePress={onChoicePress} onMatchComplete={onMatchComplete} />
       </View>
     );
   }
@@ -251,8 +263,12 @@ function ChoiceCards({ choices, onChoicePress, selectedChoiceId }: {
   );
 }
 
-function ActivityPreview({ content, onChoicePress }: { content: StageTemplateContent; onChoicePress: (id: string) => void }) {
-  const items = Array.isArray(content.activityData) ? content.activityData.map(asRecord).slice(0, 3) : [];
+function ActivityPreview({ content, onChoicePress, onMatchComplete }: { content: StageTemplateContent; onChoicePress: (id: string) => void; onMatchComplete: () => void }) {
+  const items = Array.isArray(content.activityData) ? content.activityData.map(asRecord) : [];
+  if (content.activityType === "matching" && items.length >= 2) {
+    const pairs: MissionPair[] = items.map((item, index) => ({ id: String(item.id ?? index), left: String(item.left ?? item.source ?? ""), right: String(item.right ?? item.target ?? "") }));
+    return <MatchingMission pairs={pairs} onComplete={onMatchComplete} />;
+  }
   if (items.length) {
     return <View style={styles.matchBoard}>{["left", "right"].map((side) => <View key={side} style={styles.matchColumn}>{items.map((item, index) => <Text key={`${side}-${index}`} style={styles.matchCard}>{String(item[side] ?? item[side === "left" ? "source" : "target"] ?? item.label ?? `Item ${index + 1}`)}</Text>)}</View>)}</View>;
   }
