@@ -165,6 +165,7 @@ export default function TabLayout() {
               );
             }}
             screenOptions={{
+              animation: "fade",
               headerShown: false,
               sceneStyle: { backgroundColor: theme.colors.background },
               tabBarActiveTintColor: theme.colors.primary,

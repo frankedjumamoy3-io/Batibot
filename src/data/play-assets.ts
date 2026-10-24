@@ -456,6 +456,12 @@ export const FAMILY_WORLD_REWARD_ASSETS = {
   trophy: require("../../Batibot assets/preschool assets/my family world/trophy.png"),
 } as const;
 
+export const LESSON_REWARD_ASSETS = {
+  openChest: require("../../Batibot assets/reward assets/open-chest.png"),
+  star: require("../../Batibot assets/reward assets/star-icon.png"),
+  xp: require("../../Batibot assets/reward assets/xp-icon.png"),
+} as const;
+
 export const COUNTING_FOREST_ASSETS = {
   animals: {
     bird: require("../../Batibot assets/preschool assets/animal adventure/topic/bird.png"),

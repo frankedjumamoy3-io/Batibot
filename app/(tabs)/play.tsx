@@ -36219,9 +36219,11 @@ const lessonStyles = StyleSheet.create({
     fontWeight: "900",
   },
   stepBodyWrap: {
+    alignSelf: "stretch",
     flex: 1,
     minHeight: 0,
     overflow: "hidden",
+    width: "100%",
   },
   tapPrompt: {
     color: "#6B21F2",

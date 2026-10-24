@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect } from "react";
 import {
   Pressable,
   ScrollView,
@@ -9,6 +9,19 @@ import {
   View,
   type ViewStyle,
 } from "react-native";
+import Animated, {
+  cancelAnimation,
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export type LessonStageLabel =
   | "LOOK"
@@ -80,7 +93,7 @@ export function StandardLessonShell({
 }: StandardLessonShellProps) {
   const safeTotal = Math.max(1, totalStages);
   const safeProgressIndex = Math.max(1, Math.min(progressIndex, safeTotal));
-  const progressPercent = `${Math.round((safeProgressIndex / safeTotal) * 100)}%` as ViewStyle["width"];
+  const progressValue = (safeProgressIndex / safeTotal) * 100;
   const feedbackColor = getFeedbackColor(feedbackType, accentColor);
 
   const content = contentScrollable ? (
@@ -100,7 +113,9 @@ export function StandardLessonShell({
     <View style={[styles.container, containerStyle]}>
       <View style={styles.stageHeader}>
         <View style={[styles.stagePill, { backgroundColor: accentColor }]}>
-          <Text style={styles.stageText}>{stageLabel}</Text>
+          <PopInOnChange key={stageLabel}>
+            <Text style={styles.stageText}>{stageLabel}</Text>
+          </PopInOnChange>
         </View>
         <Pressable
           accessibilityLabel="Close lesson"
@@ -118,12 +133,7 @@ export function StandardLessonShell({
             {safeProgressIndex}/{safeTotal}
           </Text>
           <View style={styles.progressTrack}>
-            <View
-              style={[
-                styles.progressFill,
-                { backgroundColor: accentColor, width: progressPercent },
-              ]}
-            />
+            <AnimatedProgressFill color={accentColor} value={progressValue} />
           </View>
         </View>
 
@@ -134,13 +144,15 @@ export function StandardLessonShell({
             onPress={onInstructionPress}
             style={styles.instructionSection}
           >
-            <Text
-              adjustsFontSizeToFit
-              numberOfLines={instructionNumberOfLines}
-              style={[styles.instructionText, { color: accentColor }]}
-            >
-              {instruction}
-            </Text>
+            <FadeInOnChange key={instruction} style={styles.instructionTextWrap}>
+              <Text
+                adjustsFontSizeToFit
+                numberOfLines={instructionNumberOfLines}
+                style={[styles.instructionText, { color: accentColor }]}
+              >
+                {instruction}
+              </Text>
+            </FadeInOnChange>
             {showInstructionIcon ? (
               <View style={[styles.instructionIcon, { backgroundColor: accentColor }]}>
                 <Ionicons name="volume-high" size={19} color="#FFFFFF" />
@@ -149,13 +161,15 @@ export function StandardLessonShell({
           </Pressable>
         ) : (
           <View style={styles.instructionSection}>
-            <Text
-              adjustsFontSizeToFit
-              numberOfLines={instructionNumberOfLines}
-              style={[styles.instructionText, { color: accentColor }]}
-            >
-              {instruction}
-            </Text>
+            <FadeInOnChange key={instruction} style={styles.instructionTextWrap}>
+              <Text
+                adjustsFontSizeToFit
+                numberOfLines={instructionNumberOfLines}
+                style={[styles.instructionText, { color: accentColor }]}
+              >
+                {instruction}
+              </Text>
+            </FadeInOnChange>
           </View>
         )}
 
@@ -173,25 +187,142 @@ export function StandardLessonShell({
 
         <View style={styles.buttonSection}>
           {buttonVisible ? (
-            <Pressable
-              accessibilityRole="button"
+            <PrimaryActionButton
+              accentColor={accentColor}
               disabled={buttonDisabled}
+              label={buttonLabel}
               onPress={onPrimaryAction}
-              style={[
-                styles.primaryButton,
-                { backgroundColor: accentColor },
-                buttonDisabled && styles.primaryButtonDisabled,
-                buttonPulse && styles.primaryButtonPulse,
-              ]}
-            >
-              <Text style={styles.primaryButtonText}>{buttonLabel}</Text>
-            </Pressable>
+              pulse={buttonPulse}
+            />
           ) : (
             <View style={styles.primaryButtonSpacer} />
           )}
         </View>
       </View>
     </View>
+  );
+}
+
+function AnimatedProgressFill({ color, value }: { color: string; value: number }) {
+  const reduceMotion = useReducedMotion();
+  const progress = useSharedValue(value);
+
+  useEffect(() => {
+    progress.value = reduceMotion
+      ? value
+      : withTiming(value, { duration: 520, easing: Easing.out(Easing.cubic) });
+  }, [progress, reduceMotion, value]);
+
+  const fillStyle = useAnimatedStyle(() => ({
+    width: `${Math.max(0, Math.min(100, progress.value))}%`,
+  }));
+
+  return <Animated.View style={[styles.progressFill, { backgroundColor: color }, fillStyle]} />;
+}
+
+/** Small spring pop each time it mounts; key it by the value that changes. */
+function PopInOnChange({ children }: { children: ReactNode }) {
+  const reduceMotion = useReducedMotion();
+  const scale = useSharedValue(reduceMotion ? 1 : 0.6);
+  const opacity = useSharedValue(reduceMotion ? 1 : 0);
+
+  useEffect(() => {
+    if (reduceMotion) return;
+    scale.value = withSpring(1, { damping: 10, stiffness: 200 });
+    opacity.value = withTiming(1, { duration: 200 });
+  }, [opacity, reduceMotion, scale]);
+
+  const style = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ scale: scale.value }],
+  }));
+
+  return <Animated.View style={style}>{children}</Animated.View>;
+}
+
+/** Fade + slight slide each time it mounts; key it by the value that changes. */
+function FadeInOnChange({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
+  const reduceMotion = useReducedMotion();
+  const progress = useSharedValue(reduceMotion ? 1 : 0);
+
+  useEffect(() => {
+    if (reduceMotion) return;
+    progress.value = withTiming(1, { duration: 300, easing: Easing.out(Easing.quad) });
+  }, [progress, reduceMotion]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: progress.value,
+    transform: [{ translateY: (1 - progress.value) * 6 }],
+  }));
+
+  return <Animated.View style={[style, animatedStyle]}>{children}</Animated.View>;
+}
+
+function PrimaryActionButton({
+  accentColor,
+  disabled,
+  label,
+  onPress,
+  pulse,
+}: {
+  accentColor: string;
+  disabled: boolean;
+  label: StandardLessonButtonLabel;
+  onPress: () => void;
+  pulse: boolean;
+}) {
+  const reduceMotion = useReducedMotion();
+  const pressScale = useSharedValue(1);
+  const pulseScale = useSharedValue(1);
+  const enabled = useSharedValue(disabled ? 0 : 1);
+
+  useEffect(() => {
+    enabled.value = withTiming(disabled ? 0 : 1, { duration: 220 });
+  }, [disabled, enabled]);
+
+  useEffect(() => {
+    if (!pulse || disabled || reduceMotion) {
+      cancelAnimation(pulseScale);
+      pulseScale.value = withTiming(1, { duration: 150 });
+      return;
+    }
+    pulseScale.value = withRepeat(
+      withSequence(
+        withTiming(1.05, { duration: 650, easing: Easing.inOut(Easing.quad) }),
+        withTiming(1, { duration: 650, easing: Easing.inOut(Easing.quad) })
+      ),
+      -1,
+      false
+    );
+    return () => cancelAnimation(pulseScale);
+  }, [disabled, pulse, pulseScale, reduceMotion]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: 0.42 + enabled.value * 0.58,
+    transform: [{ scale: pressScale.value * pulseScale.value }],
+  }));
+
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      onPressIn={() => {
+        pressScale.value = withSpring(0.94, { damping: 15, stiffness: 320 });
+      }}
+      onPressOut={() => {
+        pressScale.value = withSpring(1, { damping: 10, stiffness: 260 });
+      }}
+      style={[
+        styles.primaryButton,
+        { backgroundColor: accentColor },
+        pulse && !disabled && styles.primaryButtonPulse,
+        animatedStyle,
+      ]}
+    >
+      <Text style={styles.primaryButtonText}>{label}</Text>
+    </AnimatedPressable>
   );
 }
 
@@ -284,12 +415,14 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   instructionText: {
-    flex: 1,
-    flexShrink: 1,
     fontSize: 19,
     fontWeight: "900",
     lineHeight: 23,
     textAlign: "center",
+  },
+  instructionTextWrap: {
+    flex: 1,
+    flexShrink: 1,
   },
   panel: {
     backgroundColor: "#DCEFD9",
@@ -311,9 +444,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 34,
     width: "70%",
     zIndex: 3,
-  },
-  primaryButtonDisabled: {
-    opacity: 0.42,
   },
   primaryButtonPulse: {
     shadowColor: DEFAULT_ACCENT,

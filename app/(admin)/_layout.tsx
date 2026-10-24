@@ -24,7 +24,7 @@ export default function AdminLayout() {
 
   return (
     <LearnerProgressProvider>
-      <Stack screenOptions={{ headerShown: false }} />
+      <Stack screenOptions={{ animation: "slide_from_right", headerShown: false }} />
     </LearnerProgressProvider>
   );
 }

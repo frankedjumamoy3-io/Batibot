@@ -48,11 +48,14 @@ function AppShell() {
         },
       }}
     >
-      <Stack>
+      <Stack screenOptions={{ animation: "fade_from_bottom", animationDuration: 280 }}>
         <Stack.Screen name={STACK_ROUTE_NAMES.admin} options={{ headerShown: false }} />
         <Stack.Screen name={STACK_ROUTE_NAMES.auth} options={{ headerShown: false }} />
         <Stack.Screen name={STACK_ROUTE_NAMES.tabs} options={{ headerShown: false }} />
-        <Stack.Screen name={STACK_ROUTE_NAMES.lessonTopic} options={{ headerShown: false }} />
+        <Stack.Screen
+          name={STACK_ROUTE_NAMES.lessonTopic}
+          options={{ animation: "slide_from_right", headerShown: false }}
+        />
         <Stack.Screen
           name={STACK_ROUTE_NAMES.modal}
           options={{ presentation: "modal", title: "Modal" }}

@@ -25,5 +25,5 @@ export default function AuthLayout() {
     );
   }
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return <Stack screenOptions={{ animation: "slide_from_right", headerShown: false }} />;
 }

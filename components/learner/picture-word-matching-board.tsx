@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useMemo, useRef, useState } from "react";
-import { Animated, PanResponder, Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Animated, Easing, PanResponder, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { BatiBotAssetImage } from "@/components/assets/batibot-asset-image";
 import { resolveAsset } from "@/src/services/assets/assetResolver";
@@ -16,10 +16,56 @@ type Props = {
   onMatch: (picture: string, word: string) => boolean;
 };
 
-function PictureCard({ pair, done, selected, disabled, onSelect, onDrop }: {
-  pair: Pair; done: boolean; selected: boolean; disabled: boolean;
+// Native driver is unsupported on web and would only log warnings there.
+const USE_NATIVE_DRIVER = Platform.OS !== "web";
+
+/**
+ * Scale + shake feedback for a card. Runs on its own Animated.View so it never
+ * shares a transform with the JS-driven drag position.
+ */
+function useCardFeedback(selected: boolean, done: boolean, shakeKey: number) {
+  const scale = useRef(new Animated.Value(1)).current;
+  const shake = useRef(new Animated.Value(0)).current;
+  const wasDone = useRef(done);
+
+  useEffect(() => {
+    if (done && !wasDone.current) {
+      Animated.sequence([
+        Animated.spring(scale, { toValue: 1.1, friction: 4, tension: 220, useNativeDriver: USE_NATIVE_DRIVER }),
+        Animated.spring(scale, { toValue: 1, friction: 5, tension: 160, useNativeDriver: USE_NATIVE_DRIVER }),
+      ]).start();
+    } else if (!done) {
+      Animated.spring(scale, {
+        toValue: selected ? 1.04 : 1, friction: 6, tension: 180, useNativeDriver: USE_NATIVE_DRIVER,
+      }).start();
+    }
+    wasDone.current = done;
+  }, [done, scale, selected]);
+
+  useEffect(() => {
+    if (!shakeKey) return;
+    shake.setValue(0);
+    Animated.sequence([
+      Animated.timing(shake, { toValue: 1, duration: 55, easing: Easing.linear, useNativeDriver: USE_NATIVE_DRIVER }),
+      Animated.timing(shake, { toValue: -1, duration: 90, easing: Easing.linear, useNativeDriver: USE_NATIVE_DRIVER }),
+      Animated.timing(shake, { toValue: 0.6, duration: 80, easing: Easing.linear, useNativeDriver: USE_NATIVE_DRIVER }),
+      Animated.timing(shake, { toValue: 0, duration: 70, easing: Easing.linear, useNativeDriver: USE_NATIVE_DRIVER }),
+    ]).start();
+  }, [shake, shakeKey]);
+
+  return {
+    transform: [
+      { translateX: shake.interpolate({ inputRange: [-1, 1], outputRange: [-8, 8] }) },
+      { scale },
+    ],
+  };
+}
+
+function PictureCard({ pair, done, selected, disabled, shakeKey, onSelect, onDrop }: {
+  pair: Pair; done: boolean; selected: boolean; disabled: boolean; shakeKey: number;
   onSelect: () => void; onDrop: (x: number, y: number) => void;
 }) {
+  const feedbackStyle = useCardFeedback(selected, done, shakeKey);
   const position = useRef(new Animated.ValueXY()).current;
   const [dragging, setDragging] = useState(false);
   const latest = useRef({ disabled, done, onSelect, onDrop });
@@ -48,35 +94,69 @@ function PictureCard({ pair, done, selected, disabled, onSelect, onDrop }: {
       styles.pictureSlot,
       { transform: position.getTranslateTransform(), zIndex: dragging ? 10 : 0 },
     ]}>
-      <Pressable
-        accessibilityLabel={`${pair.imageLabel}${done ? ", matched" : " picture"}`}
-        accessibilityHint="Tap to select, then tap its word. You can also drag the picture."
-        accessibilityRole="button"
-        accessibilityState={{ disabled: disabled || done, selected }}
-        disabled={disabled || done}
-        onPress={onSelect}
-        style={[styles.picture, selected && styles.selected, done && styles.matched]}
-      >
-        <View pointerEvents="none" style={styles.image}>
-          <BatiBotAssetImage
-            asset={resolveAsset({ topic: pair.imageLabel, worldId: "grade1-word-kingdom", stage: "PLAY" })}
-            hideLabel
-            style={styles.imageContent}
-            imageStyle={styles.imageContent}
-          />
-        </View>
-        {done ? <Ionicons style={styles.check} name="checkmark-circle" size={24} color="#15803D" /> : null}
-      </Pressable>
+      <Animated.View style={feedbackStyle}>
+        <Pressable
+          accessibilityLabel={`${pair.imageLabel}${done ? ", matched" : " picture"}`}
+          accessibilityHint="Tap to select, then tap its word. You can also drag the picture."
+          accessibilityRole="button"
+          accessibilityState={{ disabled: disabled || done, selected }}
+          disabled={disabled || done}
+          onPress={onSelect}
+          style={[styles.picture, selected && styles.selected, done && styles.matched]}
+        >
+          <View style={[styles.image, { pointerEvents: "none" }]}>
+            <BatiBotAssetImage
+              asset={resolveAsset({ topic: pair.imageLabel, worldId: "grade1-word-kingdom", stage: "PLAY" })}
+              hideLabel
+              style={styles.imageContent}
+              imageStyle={styles.imageContent}
+            />
+          </View>
+          {done ? <Ionicons style={styles.check} name="checkmark-circle" size={24} color="#15803D" /> : null}
+        </Pressable>
+      </Animated.View>
     </Animated.View>
+  );
+}
+
+function WordCard({ word, filled, disabled, shakeKey, onPress, registerRef }: {
+  word: string; filled: boolean; disabled: boolean; shakeKey: number;
+  onPress: () => void; registerRef: (node: View | null) => void;
+}) {
+  const feedbackStyle = useCardFeedback(false, filled, shakeKey);
+
+  return (
+    <View ref={registerRef} collapsable={false} style={styles.wordSlot}>
+      <Animated.View style={feedbackStyle}>
+        <Pressable
+          accessibilityLabel={`${word}${filled ? ", matched" : ""}`}
+          accessibilityRole="button" accessibilityState={{ disabled: disabled || filled }}
+          disabled={disabled || filled}
+          onPress={onPress}
+          style={({ pressed }) => [styles.word, filled && styles.matched, pressed && !filled && styles.wordPressed]}
+        >
+          <Text numberOfLines={2} adjustsFontSizeToFit style={styles.wordText}>{word}</Text>
+          {filled ? <Ionicons name="checkmark-circle" size={20} color="#15803D" /> : null}
+        </Pressable>
+      </Animated.View>
+    </View>
   );
 }
 
 export function PictureWordMatchingBoard({ pairs, words, matched, disabled, onMatch }: Props) {
   const [selected, setSelected] = useState<string | null>(null);
+  const [wrong, setWrong] = useState<{ picture: string; word: string; key: number }>({ picture: "", word: "", key: 0 });
   const targetRefs = useRef<Record<string, View | null>>({});
   const busy = useRef(false);
+  const entrance = useRef(new Animated.Value(0)).current;
   const count = Object.keys(matched).length;
   const instruction = "Tap a picture, then its word. You can drag it too.";
+
+  useEffect(() => {
+    Animated.timing(entrance, {
+      toValue: 1, duration: 320, easing: Easing.out(Easing.cubic), useNativeDriver: USE_NATIVE_DRIVER,
+    }).start();
+  }, [entrance]);
 
   function attempt(picture: string, word: string) {
     if (disabled || matched[picture] || Object.values(matched).includes(word) || busy.current) return;
@@ -85,6 +165,7 @@ export function PictureWordMatchingBoard({ pairs, words, matched, disabled, onMa
       const correct = onMatch(picture, word);
       playLessonCue(correct ? "correct" : "retry");
       if (correct) setSelected(null);
+      else setWrong((current) => ({ picture, word, key: current.key + 1 }));
     } finally {
       busy.current = false;
     }
@@ -98,7 +179,10 @@ export function PictureWordMatchingBoard({ pairs, words, matched, disabled, onMa
   }
 
   return (
-    <View style={styles.board}>
+    <Animated.View style={[styles.board, {
+      opacity: entrance,
+      transform: [{ translateY: entrance.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }],
+    }]}>
       <View style={styles.heading}>
         <Text accessibilityLiveRegion="polite" style={styles.progress}>{count} of {pairs.length} matched</Text>
         <Pressable
@@ -113,35 +197,30 @@ export function PictureWordMatchingBoard({ pairs, words, matched, disabled, onMa
         {pairs.map((pair) => <PictureCard
           key={pair.imageLabel} pair={pair} done={Boolean(matched[pair.imageLabel])}
           selected={selected === pair.imageLabel} disabled={disabled}
+          shakeKey={wrong.picture === pair.imageLabel ? wrong.key : 0}
           onSelect={() => { setSelected(pair.imageLabel); playLessonCue("tap"); void speakText(pair.imageLabel, { grade: "grade1" }); }}
           onDrop={(x, y) => drop(pair.imageLabel, x, y)}
         />)}
       </View>
       <View style={styles.grid}>
-        {words.map((word) => {
-          const filled = Object.values(matched).includes(word);
-          return (
-            <View key={word} ref={(node) => { targetRefs.current[word] = node; }} collapsable={false} style={styles.wordSlot}>
-              <Pressable
-                accessibilityLabel={`${word}${filled ? ", matched" : ""}`}
-                accessibilityRole="button" accessibilityState={{ disabled: disabled || filled }}
-                disabled={disabled || filled}
-                onPress={() => { if (selected) attempt(selected, word); else void speakText(word, { grade: "grade1" }); }}
-                style={[styles.word, filled && styles.matched]}
-              >
-                <Text style={styles.wordText}>{word}</Text>
-                {filled ? <Ionicons name="checkmark-circle" size={20} color="#15803D" /> : null}
-              </Pressable>
-            </View>
-          );
-        })}
+        {words.map((word) => (
+          <WordCard
+            key={word}
+            word={word}
+            filled={Object.values(matched).includes(word)}
+            disabled={disabled}
+            shakeKey={wrong.word === word ? wrong.key : 0}
+            registerRef={(node) => { targetRefs.current[word] = node; }}
+            onPress={() => { if (selected) attempt(selected, word); else void speakText(word, { grade: "grade1" }); }}
+          />
+        ))}
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  board: { width: "100%", maxWidth: 420, alignSelf: "center", gap: 10, padding: 4 },
+  board: { width: "100%", maxWidth: 420, alignSelf: "center", gap: 10, paddingHorizontal: 4, paddingVertical: 4 },
   heading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   progress: { color: "#6D28D9", fontSize: 16, fontWeight: "800", flexShrink: 1 },
   speaker: { minWidth: 48, minHeight: 48, alignItems: "center", justifyContent: "center", borderRadius: 24, backgroundColor: "#EDE9FE" },
@@ -156,5 +235,6 @@ const styles = StyleSheet.create({
   check: { position: "absolute", top: 6, right: 6 },
   wordSlot: { width: "48%" },
   word: { minHeight: 52, flexDirection: "row", gap: 6, alignItems: "center", justifyContent: "center", padding: 8, borderRadius: 16, borderWidth: 2, borderStyle: "dashed", borderColor: "#8B5CF6", backgroundColor: "#FFFFFF" },
+  wordPressed: { backgroundColor: "#EDE9FE" },
   wordText: { color: "#5B21B6", fontSize: 17, fontWeight: "800", flexShrink: 1, textAlign: "center" },
 });
