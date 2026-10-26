@@ -904,6 +904,13 @@ export function PlaySettingsMenu() {
                     </>
                   )}
                 </Pressable>
+                {user?.isLocalLearner && !user.isTestAccount ? (
+                  <Pressable accessibilityRole="button" style={settingsStyles.secondaryAction}
+                    onPress={() => { setOpen(false); router.push({ pathname: APP_ROUTES.auth.online, params: { mode: "signup" } }); }}>
+                    <Ionicons name="cloud-upload" size={24} color={SIMPLE_COLORS.purple} />
+                    <Text style={settingsStyles.secondaryActionText}>Back up my journey</Text>
+                  </Pressable>
+                ) : null}
                 <Pressable
                   disabled={signingOut}
                   onPress={confirmSignOut}

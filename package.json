@@ -3,6 +3,7 @@
   "main": "expo-router/entry",
   "version": "1.0.3",
   "scripts": {
+    "test:progress-resume": "node --test scripts/test-progress-resume.cjs",
     "test:api-integration": "node --test scripts/test-api-integration.cjs",
     "test:admin-ai": "node --test scripts/test-admin-ai.cjs",
     "start": "node ./scripts/start-expo-fixed.js",

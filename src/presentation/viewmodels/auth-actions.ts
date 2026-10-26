@@ -1,5 +1,6 @@
 export {
   loginWithEmail,
+  loginLearnerOnline,
   loginWithLearnerProfile,
   logoutCurrentUser,
   requestPasswordReset,

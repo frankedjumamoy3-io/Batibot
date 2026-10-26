@@ -19,7 +19,7 @@
     },
     "android": {
       "package": "com.iansa.batibot",
-      "versionCode": 6,
+      "versionCode": 7,
       "adaptiveIcon": {
         "backgroundColor": "#0799AD",
         "foregroundImage": "./assets/images/android-icon-foreground.png"

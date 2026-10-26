@@ -339,6 +339,10 @@ export default function LoginScreen() {
         )}
 
         <View style={styles.mockupBottomActions}>
+          <Pressable accessibilityRole="button" disabled={loading} style={{ minHeight: 48, justifyContent: "center", alignItems: "center" }}
+            onPress={() => router.push({ pathname: APP_ROUTES.auth.online, params: { mode: "login" } })}>
+            <Text style={styles.mockupSecondaryText}>Sign in with email</Text>
+          </Pressable>
           <Pressable
             disabled={adminMode ? adminDisabled : learnerDisabled}
             onPress={() => {

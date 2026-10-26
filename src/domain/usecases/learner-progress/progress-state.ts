@@ -8,6 +8,7 @@ import {
   type QuizScoreRecord,
 } from "@/src/data/quiz";
 import { getVocabularyItem } from "@/src/data/vocabulary";
+import { sanitizeLessonCheckpoints } from "./lesson-checkpoints";
 import type {
   ActiveQuizProgressDraft,
   LearnerActivity,
@@ -25,6 +26,8 @@ export const DEFAULT_UNLOCKED_QUIZ_IDS = QUIZ_PRESETS.filter(
 ).map((quiz) => quiz.id);
 
 export const DEFAULT_PROGRESS: LearnerProgressState = {
+  lessonCheckpoints: {},
+  resetAt: null,
   isTestAccount: false,
   unlockAllQuizzes: false,
   totalXp: 0,
@@ -748,5 +751,7 @@ export function sanitizeLearnerProgress(raw: unknown): LearnerProgressState {
           .filter((item): item is LearnerActivity => item !== null)
       : [],
     activeQuizDrafts: sanitizeActiveQuizDrafts(candidate.activeQuizDrafts),
+    lessonCheckpoints: sanitizeLessonCheckpoints(candidate.lessonCheckpoints),
+    resetAt: typeof candidate.resetAt === "string" && Number.isFinite(Date.parse(candidate.resetAt)) ? candidate.resetAt : null,
   });
 }

@@ -1,4 +1,4 @@
-import { Redirect, Stack } from "expo-router";
+import { Redirect, Stack, usePathname } from "expo-router";
 
 import { AppLoadingScreen } from "@/components/common/app-loading-screen";
 import { useCurrentUserProfile } from "@/src/presentation/hooks/use-current-user-profile";
@@ -8,12 +8,13 @@ import { canAccessAdminRoute } from "@/src/services/adminAccessService";
 
 export default function AuthLayout() {
   const { loading, profile, user } = useCurrentUserProfile();
+  const pathname = usePathname();
 
   if (loading) {
     return <AppLoadingScreen message={SYSTEM_COPY.authLoading} />;
   }
 
-  if (user) {
+  if (user && !(user.isLocalLearner && pathname.endsWith("/online"))) {
     return (
       <Redirect
         href={

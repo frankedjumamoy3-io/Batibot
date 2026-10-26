@@ -60,7 +60,7 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
         const currentRevision = ++sessionRevision.current;
         if (account) {
           const user: AuthSessionUser = { uid: account.id, email: account.email, displayName: account.displayName, photoURL: null, getIdToken: getApiAccessToken };
-          setState({ loading: false, user, profile: { ...createFallbackUserProfile(user), role: account.role } });
+          setState({ loading: false, user, profile: { ...createFallbackUserProfile(user), role: account.role, gradeLevel: account.gradeLevel ?? null } });
         } else {
           void loadLearnerSession().then(session => {
             if (active && currentRevision === sessionRevision.current) setState({ loading: false, user: session?.user ?? null, profile: session?.profile ?? null });

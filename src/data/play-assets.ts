@@ -127,6 +127,17 @@ export const REUSABLE_LEARNING_ASSETS = {
 } as const;
 
 export const TOPIC_IMAGES: Record<string, ImageSourcePropType> = {
+  "grade1-word-kingdom-nouns": require("../../assets/images/modules/word-nouns.png"),
+  "grade1-word-kingdom-noun": require("../../assets/images/modules/word-nouns.png"),
+  "grade1-word-kingdom-naming-words": require("../../assets/images/modules/word-nouns.png"),
+  "grade1-word-kingdom-verbs": require("../../assets/images/modules/word-verbs.png"),
+  "grade1-word-kingdom-action-words": require("../../assets/images/modules/word-verbs.png"),
+  "grade1-word-kingdom-adjectives": require("../../assets/images/modules/word-adjectives.png"),
+  "grade1-word-kingdom-describing-words": require("../../assets/images/modules/word-adjectives.png"),
+  "grade1-word-kingdom-opposite-words": require("../../assets/images/modules/word-opposites.png"),
+  "grade1-word-kingdom-similar-words": require("../../assets/images/modules/word-similar.png"),
+  "grade1-word-kingdom-word-challenge": require("../../assets/images/modules/word-challenge.png"),
+  "grade1-word-kingdom-word-kingdom-mastery-challenge": require("../../assets/images/modules/word-challenge.png"),
   "preschool-animal-adventure-what-are-animals": require("../../Batibot assets/preschool assets/animal adventure/topic/animals.png"),
   "preschool-animal-adventure-animal-challenge": require("../../Batibot assets/preschool assets/animal adventure/topic/animals.png"),
   "preschool-animal-adventure-bird": require("../../Batibot assets/preschool assets/animal adventure/topic/bird.png"),
@@ -424,8 +435,6 @@ export const TOPIC_IMAGES: Record<string, ImageSourcePropType> = {
   "grade1-reading-moon": REUSABLE_LEARNING_ASSETS.nature.moon,
   "grade1-reading-rain": REUSABLE_LEARNING_ASSETS.nature.rain,
   "grade1-reading-leaf": REUSABLE_LEARNING_ASSETS.nature.leaf,
-  "grade1-word-kingdom-action-words": REUSABLE_LEARNING_ASSETS.actions.run,
-  "grade1-word-kingdom-noun": WORLD_IMAGES["grade1-word-kingdom"],
   "grade1-word-kingdom-run": REUSABLE_LEARNING_ASSETS.actions.run,
   "grade1-word-kingdom-runs": REUSABLE_LEARNING_ASSETS.actions.run,
   "grade1-word-kingdom-running-child": REUSABLE_LEARNING_ASSETS.actions.run,

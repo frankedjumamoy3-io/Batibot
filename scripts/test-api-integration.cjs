@@ -27,6 +27,30 @@ const admin = { id: 'test-admin', role: 'admin', email: 'admin@example.test', di
 const session = { accessToken: 'access-1', refreshToken: 'refresh-1', accessTokenExpiresInSeconds: 900, user: admin };
 after(() => { global.fetch = originalFetch; Module._load = originalLoad; Module._resolveFilename = originalResolve; });
 
+test('learner registration saves imported progress before publishing the authenticated session', async () => {
+  const learner = { ...admin, id: 'learner-ana', role: 'learner', gradeLevel: 'Grade 1' };
+  global.fetch = async url => { assert.ok(url.endsWith('/auth/register')); return ok({ ...session, user: learner }); };
+  let imported = false;
+  const stop = sessions.observeApiSession(user => { if (user?.id === learner.id) assert.equal(imported, true); });
+  const user = await sessions.registerLearnerApi({ email: 'ana@example.test', password: 'test-only-password', displayName: 'Ana', gradeLevel: 'Grade 1' }, async id => {
+    assert.equal(id, learner.id); imported = true;
+  });
+  assert.equal(user.gradeLevel, 'Grade 1');
+  stop();
+  await sessions.logoutApi();
+});
+
+test('authenticated learners remain available offline and account-bound uploads reject the wrong user', async () => {
+  const learner = { ...admin, id: 'learner-offline', role: 'learner', gradeLevel: 'Grade 2' };
+  global.fetch = async () => ok({ ...session, user: learner });
+  await sessions.loginApi('ana@example.test', 'test-only-password', 'learner');
+  global.fetch = async () => { throw new Error('offline'); };
+  assert.equal((await sessions.restoreApiSession()).id, learner.id);
+  await assert.rejects(sessions.authenticatedRequest('/learner/progress', 'PUT', {}, { expectedUserId: 'another-child' }), error => error.status === 401);
+  assert.ok(stored.size > 0);
+  await sessions.logoutApi();
+});
+
 test('safe reads retry once, mutations do not retry, server details stay private', async () => {
   let calls = 0;
   global.fetch = async () => { calls++; if (calls === 1) throw new Error('offline'); return ok({ items: [] }); };

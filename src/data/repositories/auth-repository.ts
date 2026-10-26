@@ -12,13 +12,29 @@ import {
 } from "@/src/data/repositories/learner-session-repository";
 import { auth } from "@/src/config/firebase";
 import { USE_NODE_BACKEND } from "@/src/config/backend";
-import { loginApi, logoutApi } from "@/src/infrastructure/api/session";
+import { loginApi, logoutApi, registerLearnerApi } from "@/src/infrastructure/api/session";
 import { ensureUserProfile } from "@/src/data/repositories/user-profile-repository";
 import type { LearnerGradeLevel } from "@/src/types/user";
+import type { LearnerProgressState } from "@/src/domain/entities/learner-progress";
+import { getLearnerProgressStorageKey, loadLocalLearnerProgress, saveLocalLearnerProgress } from "./learner-progress-repository";
+import { mergeLearnerProgress } from "@/src/domain/usecases/learner-progress/merge-progress";
+import { getPersistableLearnerProgress } from "@/src/domain/usecases/learner-progress/progress-state";
 
 interface EmailPasswordCredentials {
+  localProgress?: LearnerProgressState;
   email: string;
   password: string;
+}
+
+function importDeviceProgress(progress?: LearnerProgressState) {
+  return async (uid: string) => {
+    if (progress && !progress.isTestAccount) {
+      const key = getLearnerProgressStorageKey(uid);
+      const existing = await loadLocalLearnerProgress(key);
+      await saveLocalLearnerProgress(key, getPersistableLearnerProgress(mergeLearnerProgress(progress, existing)));
+    }
+    await clearLearnerSession();
+  };
 }
 
 interface SignUpInput extends EmailPasswordCredentials {
@@ -63,8 +79,9 @@ export async function signupWithEmail({
   password,
   displayName,
   gradeLevel,
+  localProgress,
 }: SignUpInput) {
-  if (USE_NODE_BACKEND) throw new Error("Administrator accounts must be provisioned by the project owner.");
+  if (USE_NODE_BACKEND) return { user: await registerLearnerApi({ email, password, displayName, gradeLevel }, importDeviceProgress(localProgress)) };
   const credentials = await createUserWithEmailAndPassword(
     auth,
     normalizeEmail(email),
@@ -89,6 +106,11 @@ export async function signupWithEmail({
   );
 
   return credentials;
+}
+
+export async function loginLearnerOnline(input: EmailPasswordCredentials) {
+  if (USE_NODE_BACKEND) return { user: await loginApi(input.email, input.password, "learner", importDeviceProgress(input.localProgress)) };
+  return loginWithEmail(input);
 }
 
 export async function requestPasswordReset(email: string) {

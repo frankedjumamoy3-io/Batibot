@@ -114,7 +114,7 @@ export function StandardRewardStage({
   return (
     <View
       accessible
-      accessibilityLabel={`${heading}. ${message}. Plus ${stars} star, plus ${xp} XP.`}
+      accessibilityLabel={`${heading}. ${message}. ${alreadyClaimed ? "Your reward is saved." : `Plus ${stars} star, plus ${xp} XP.`}`}
       style={styles.wrap}
     >
       {!alreadyClaimed ? <ConfettiBurst /> : null}
@@ -163,11 +163,11 @@ export function StandardRewardStage({
       <View style={styles.rewardRow}>
         <Animated.View style={[styles.rewardPill, styles.starPill, starStyle]}>
           <Image resizeMode="contain" source={LESSON_REWARD_ASSETS.star} style={styles.rewardIcon} />
-          <Text style={[styles.rewardText, styles.starText]}>+{stars} STAR</Text>
+          <Text style={[styles.rewardText, styles.starText]}>{alreadyClaimed ? "STAR SAVED" : `+${stars} STAR`}</Text>
         </Animated.View>
         <Animated.View style={[styles.rewardPill, styles.xpPill, xpStyle]}>
           <Image resizeMode="contain" source={LESSON_REWARD_ASSETS.xp} style={styles.rewardIcon} />
-          <Text style={[styles.rewardText, styles.xpText]}>+{xp} XP</Text>
+          <Text style={[styles.rewardText, styles.xpText]}>{alreadyClaimed ? "XP SAVED" : `+${xp} XP`}</Text>
         </Animated.View>
       </View>
     </View>

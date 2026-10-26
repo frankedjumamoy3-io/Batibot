@@ -1,5 +1,6 @@
 export const APP_ROUTES = {
   auth: {
+    online: "/(auth)/online",
     login: "/(auth)/login",
     signup: "/(auth)/signup",
     forgotPassword: "/(auth)/forgot-password",

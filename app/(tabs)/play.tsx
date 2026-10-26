@@ -1,3 +1,5 @@
+import { WorldTopicMenu as SavedWorldTopicMenu } from "@/components/learning/world-topic-menu";
+import { getLessonResumeStep } from "@/src/domain/usecases/learner-progress/lesson-checkpoints";
 import { PictureWordMatchingBoard } from "@/components/learner/picture-word-matching-board";
 import { Ionicons } from "@expo/vector-icons";
 import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from "expo-audio";
@@ -1597,10 +1599,6 @@ function getPreschoolPlayDestination(worldId: string) {
   };
 
   return destinationByWorld[worldId] ?? { icon: "albums" as const, label: "Match here" };
-}
-
-function getFloatingCloseRightOffset(screenWidth: number, contentWidth: number) {
-  return Math.max(16, (screenWidth - contentWidth) / 2);
 }
 
 function getTopicLabel(topic?: CurriculumTopic) {
@@ -6000,24 +5998,6 @@ function isPronunciationMatch(transcript: string, targetWord: string) {
   });
 }
 
-function getPreschoolTopicIconStyle(topicTitle: string) {
-  switch (topicTitle) {
-    case "Father":
-      return topicMenuStyles.topicIconTall;
-    case "Brother":
-    case "Sister":
-      return topicMenuStyles.topicIconWide;
-    case "Friend":
-      return topicMenuStyles.topicIconFriend;
-    case "Baby":
-      return topicMenuStyles.topicIconBaby;
-    case "Home":
-      return topicMenuStyles.topicIconHome;
-    default:
-      return topicMenuStyles.topicIconGeneric;
-  }
-}
-
 function getLearnerStageId(step: ActiveLearningPhase) {
   return normalizeStageType(step) as LearnerStageId;
 }
@@ -6181,8 +6161,20 @@ function getRuntimeAdvancedActivityKind(
 function getActivePlayInfo(
   curriculumWorlds: CurriculumWorld[],
   unlockedWorldCount: number,
-  masteredTopics: Record<string, unknown>
+  progress: ReturnType<typeof useLearnerProgress>["progress"]
 ) {
+  const masteredTopics = progress.masteredTopics;
+  const checkpoints = Object.values(progress.lessonCheckpoints).sort((a, b) => b.savedAt.localeCompare(a.savedAt));
+  for (const checkpoint of checkpoints) {
+    if (masteredTopics[checkpoint.topicId]) continue;
+    const world = curriculumWorlds.slice(0, unlockedWorldCount).find(item => item.id === checkpoint.worldId);
+    if (!world) continue;
+    const topics = getWorldTopics(world);
+    const topicIndex = topics.findIndex(topic => getWorldTopicRewardId(world.id, topic.title) === checkpoint.topicId);
+    if (topicIndex >= 0) return { world, topicIndex, topic: topics[topicIndex],
+      completedCount: topics.filter(topic => masteredTopics[getWorldTopicRewardId(world.id, topic.title)]).length,
+      totalTopics: topics.length, isCompleted: false };
+  }
   for (let wIndex = 0; wIndex < curriculumWorlds.length; wIndex++) {
     if (wIndex >= unlockedWorldCount) break;
     const w = curriculumWorlds[wIndex];
@@ -6228,11 +6220,15 @@ export default function PlayScreen() {
   const challengeDraftSubmitHandlerRef = useRef<ChallengeDraftSubmitHandler | null>(null);
   const {
     progress,
+    isHydrated,
+    saveLessonCheckpoint,
     claimWorldReward,
     markLessonStageCompleted,
     markTopicMastered,
     markWordViewed,
   } = useLearnerProgress();
+  const progressSnapshotRef = useRef(progress);
+  progressSnapshotRef.current = progress;
   const [activeWorld, setActiveWorld] = useState<CurriculumWorld | null>(null);
   const [activeTopicIndex, setActiveTopicIndex] = useState<number | null>(0);
   const [challengeCompletedNodes, setChallengeCompletedNodes] = useState([false, false, false]);
@@ -6427,6 +6423,7 @@ export default function PlayScreen() {
     : 0;
 
   useEffect(() => {
+    if (!isHydrated) return;
     if (!routedWorldId && !routedTopicId) {
       handledRouteKeyRef.current = null;
       return;
@@ -6465,8 +6462,41 @@ export default function PlayScreen() {
     setActiveWorld(world);
     setActiveTopicIndex(topicIndex);
     resetStageActivity();
-    setStepIndex(0);
-  }, [curriculum.worlds, routedTopicId, routedWorldId]);
+    restoreTopic(world, topicIndex);
+  }, [curriculum.worlds, routedTopicId, routedWorldId, isHydrated]);
+
+  useEffect(() => {
+    if (!isHydrated || !activeWorld || activeTopicIndex === null || !activeRewardId) return;
+    saveLessonCheckpoint({
+      topicId: activeRewardId, worldId: activeWorld.id, stepIndex, interactNodeIndex, challengeNodeIndex,
+      challengeCompletedNodes, challengeCorrectNodes, challengeSelectedAnswers,
+      exploreTapped, interactImageTapped, interactWordTapped, interactListenTapped, practiceAnswer,
+    });
+  }, [isHydrated, activeWorld, activeTopicIndex, activeRewardId, stepIndex, interactNodeIndex, challengeNodeIndex,
+    challengeCompletedNodes, challengeCorrectNodes, challengeSelectedAnswers, exploreTapped,
+    interactImageTapped, interactWordTapped, interactListenTapped, practiceAnswer, saveLessonCheckpoint]);
+
+  function restoreTopic(world: CurriculumWorld, index: number) {
+    const topic = getWorldTopics(world)[index];
+    if (!topic) return;
+    const id = getWorldTopicRewardId(world.id, topic.title);
+    const snapshot = progressSnapshotRef.current;
+    const saved = snapshot.lessonCheckpoints[id];
+    const resumeStep = getLessonResumeStep(snapshot, id);
+    setStepIndex(resumeStep);
+    if (!saved || saved.stepIndex !== resumeStep || (snapshot.masteredTopics[id] && saved.stepIndex === 7)) return;
+    const count = getStageNodeCount(world.id, topic.title, ACTIVE_LEARNING_PHASES[saved.stepIndex]);
+    setInteractNodeIndex(Math.min(saved.interactNodeIndex, Math.max(0, count - 1)));
+    setChallengeNodeIndex(Math.min(saved.challengeNodeIndex, Math.max(0, count - 1)) as ChallengeNodeIndex);
+    setChallengeCompletedNodes(saved.challengeCompletedNodes);
+    setChallengeCorrectNodes(saved.challengeCorrectNodes);
+    setChallengeSelectedAnswers(saved.challengeSelectedAnswers);
+    setExploreTapped(saved.exploreTapped);
+    setInteractImageTapped(saved.interactImageTapped);
+    setInteractWordTapped(saved.interactWordTapped);
+    setInteractListenTapped(saved.interactListenTapped);
+    setPracticeAnswer(saved.practiceAnswer);
+  }
 
   function recordStageCompletion(stageOverride: ActiveLearningPhase = step) {
     if (!activeWorld || !activeTopicForReward || !activeRewardId) {
@@ -6737,7 +6767,7 @@ export default function PlayScreen() {
   }
 
   function openWorld(world: CurriculumWorld, locked: boolean) {
-    if (locked) {
+    if (locked || !isHydrated) {
       return;
     }
 
@@ -6762,7 +6792,7 @@ export default function PlayScreen() {
     setActiveWorld(world);
     setActiveTopicIndex(topicIndex);
     resetStageActivity();
-    setStepIndex(0);
+    restoreTopic(world, topicIndex);
   }, []);
 
   function closeWorld() {
@@ -6780,26 +6810,26 @@ export default function PlayScreen() {
   const autoLaunchParam = getRouteParamValue(routeParams.autoLaunch);
 
   useEffect(() => {
-    if (!autoLaunchParam || lastHandledAutoLaunchRef.current === autoLaunchParam) {
+    if (!isHydrated || !autoLaunchParam || lastHandledAutoLaunchRef.current === autoLaunchParam) {
       return;
     }
     lastHandledAutoLaunchRef.current = autoLaunchParam;
     if (!activeWorld) {
-      const info = getActivePlayInfo(curriculum.worlds, unlockedWorldCount, progress.masteredTopics);
+      const info = getActivePlayInfo(curriculum.worlds, unlockedWorldCount, progress);
       launchActivity(info.world, info.topicIndex);
     }
-  }, [activeWorld, autoLaunchParam, curriculum.worlds, launchActivity, progress.masteredTopics, unlockedWorldCount]);
+  }, [activeWorld, autoLaunchParam, curriculum.worlds, launchActivity, progress, unlockedWorldCount, isHydrated]);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener("tabPress" as never, () => {
-      if (!activeWorld) {
-        const info = getActivePlayInfo(curriculum.worlds, unlockedWorldCount, progress.masteredTopics);
+      if (!activeWorld && isHydrated) {
+        const info = getActivePlayInfo(curriculum.worlds, unlockedWorldCount, progress);
         launchActivity(info.world, info.topicIndex);
       }
     });
 
     return unsubscribe;
-  }, [activeWorld, curriculum.worlds, launchActivity, navigation, progress.masteredTopics, unlockedWorldCount]);
+  }, [activeWorld, curriculum.worlds, launchActivity, navigation, progress, unlockedWorldCount, isHydrated]);
 
   function chooseTopic(index: number) {
     if (!activeWorld) {
@@ -6816,7 +6846,7 @@ export default function PlayScreen() {
 
     setActiveTopicIndex(index);
     resetStageActivity();
-    setStepIndex(0);
+    restoreTopic(activeWorld, index);
   }
 
   function goNext() {
@@ -6902,19 +6932,7 @@ export default function PlayScreen() {
         return;
       }
 
-      if (activeTopicReplay) {
-        recordStageCompletion();
 
-        if (nextTopic) {
-          setActiveTopicIndex(currentTopicIndex + 1);
-          resetStageActivity();
-          setStepIndex(0);
-        } else {
-          closeWorld();
-        }
-
-        return;
-      }
     }
 
     if (
@@ -6952,7 +6970,7 @@ export default function PlayScreen() {
     <View style={styles.page}>
       <Tabs.Screen
         options={{
-          tabBarStyle: activeWorld ? { display: "none" } : undefined,
+          tabBarStyle: { display: activeWorld ? "none" : "flex" },
         }}
       />
       <ImageBackground
@@ -7052,6 +7070,8 @@ export default function PlayScreen() {
             stepIndex={stepIndex}
             world={activeWorld}
           />
+        ) : !isHydrated ? (
+          <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}><Text>Opening your adventure...</Text></View>
         ) : (
           <WorldMap
             curriculumWorlds={curriculum.worlds}
@@ -7091,8 +7111,8 @@ function WorldMap({
     progress.completedQuizIds.length + progress.claimedWorldRewardIds.length;
 
   const activePlayInfo = useMemo(() => {
-    return getActivePlayInfo(curriculumWorlds, unlockedWorldCount, progress.masteredTopics);
-  }, [curriculumWorlds, progress.masteredTopics, unlockedWorldCount]);
+    return getActivePlayInfo(curriculumWorlds, unlockedWorldCount, progress);
+  }, [curriculumWorlds, progress, unlockedWorldCount]);
 
   return (
     <>
@@ -7248,126 +7268,21 @@ function ProgressStarRow({ stars }: { stars: number }) {
   );
 }
 
-function WorldTopicMenu({
-  allTopicsUnlocked,
-  masteredTopics,
-  onChooseTopic,
-  onClose,
-  world,
-}: {
-  allTopicsUnlocked: boolean;
-  masteredTopics: string[];
-  onChooseTopic: (index: number) => void;
-  onClose: () => void;
-  world: CurriculumWorld;
+function WorldTopicMenu({ allTopicsUnlocked, masteredTopics, onChooseTopic, onClose, world }: {
+  allTopicsUnlocked: boolean; masteredTopics: string[]; onChooseTopic: (index: number) => void;
+  onClose: () => void; world: CurriculumWorld;
 }) {
-  const { width } = useWindowDimensions();
-  const topics = getWorldTopics(world);
-  const menuWidth = Math.min(326, Math.max(292, width - 44));
-  const closeRight = getFloatingCloseRightOffset(width, menuWidth);
-
-  return (
-    <AnimatedScreenWrapper style={topicMenuStyles.wrap}>
-      <AnimatedButton
-        accessibilityLabel="Close topic list"
-        containerStyle={[
-          sharedCloseStyles.container,
-          { right: closeRight, top: 14 },
-        ]}
-        style={sharedCloseStyles.button}
-        onPress={onClose}
-      >
-        <Ionicons name="close" size={30} color="#FFFFFF" />
-      </AnimatedButton>
-
-      <View style={[topicMenuStyles.header, { width: menuWidth }]}>
-        <Text numberOfLines={2} style={topicMenuStyles.title}>{world.title}</Text>
-      </View>
-
-      <ScrollView
-        alwaysBounceVertical={false}
-        contentContainerStyle={topicMenuStyles.topicList}
-        showsVerticalScrollIndicator={false}
-        style={[topicMenuStyles.topicScroll, { width: menuWidth + 28 }]}
-      >
-        {topics.map((topic, index) => {
-          const topicImage = getTopicImage(world.id, topic.title);
-          const topicAsset = resolveTopicAssetForTitle(world.id, topic.title);
-          const mastered = masteredTopics.includes(topic.title);
-          const unlocked = allTopicsUnlocked || index <= masteredTopics.length;
-          const iconNode = topicImage ? (
-            <AnimatedTopicImage
-              source={topicImage}
-              style={[
-                getPreschoolTopicIconStyle(topic.title),
-                index % 2 === 1 && topicMenuStyles.topicIconFloatRight,
-              ]}
-            />
-          ) : (
-            <Text
-              style={[
-                topicMenuStyles.topicEmoji,
-                index % 2 === 1 && topicMenuStyles.topicIconFloatRight,
-              ]}
-            >
-              {topic.emoji}
-            </Text>
-          );
-          const resolvedIconNode = topicAsset.localSource ? iconNode : (
-            <BatiBotAssetImage
-              asset={topicAsset}
-              hideComingSoonLabel
-              hideLabel
-              placeholderStyle={[
-                topicMenuStyles.topicIconFallback,
-                index % 2 === 1 && topicMenuStyles.topicIconFloatRight,
-              ]}
-              style={[
-                topicMenuStyles.topicIconFallback,
-                index % 2 === 1 && topicMenuStyles.topicIconFloatRight,
-              ]}
-            />
-          );
-
-          return (
-            <AnimatedButton
-              key={`${world.id}-${topic.title}`}
-              containerStyle={topicMenuStyles.topicButtonContainer}
-              pressedScale={1.04}
-              style={[
-                topicMenuStyles.topicButton,
-                { width: menuWidth },
-                !unlocked && topicMenuStyles.topicButtonLocked,
-                mastered && topicMenuStyles.topicButtonMastered,
-              ]}
-              onPress={() => onChooseTopic(index)}
-            >
-              <View
-                style={[
-                  topicMenuStyles.topicButtonInner,
-                  index % 2 === 1 && topicMenuStyles.topicButtonInnerReverse,
-                ]}
-              >
-                {resolvedIconNode}
-                <Text numberOfLines={2} adjustsFontSizeToFit style={topicMenuStyles.topicLabel}>
-                  {getTopicLabel(topic).toUpperCase()}
-                </Text>
-                {!unlocked ? (
-                  <View style={topicMenuStyles.topicStatusBadge}>
-                    <Ionicons name="lock-closed" size={15} color="#6B21F2" />
-                  </View>
-                ) : mastered ? (
-                  <View style={topicMenuStyles.topicStatusBadge}>
-                    <Ionicons name="checkmark" size={17} color="#0CC978" />
-                  </View>
-                ) : null}
-              </View>
-            </AnimatedButton>
-          );
-        })}
-      </ScrollView>
-    </AnimatedScreenWrapper>
-  );
+  const { progress } = useLearnerProgress();
+  return <SavedWorldTopicMenu title={world.title} worldId={world.id} onClose={onClose} onChooseTopic={onChooseTopic}
+    topics={getWorldTopics(world).map((topic, index, topics) => {
+      const id = getWorldTopicRewardId(world.id, topic.title);
+      return {
+        title: topic.title, label: getTopicLabel(topic), completed: masteredTopics.includes(topic.title),
+        unlocked: allTopicsUnlocked || topics.slice(0, index).every(previous => masteredTopics.includes(previous.title)),
+        completedSteps: progress.completedStagesByTopic[id]?.completedStages.length ?? 0,
+        started: Boolean(progress.lessonCheckpoints[id] || progress.completedStagesByTopic[id]),
+      };
+    })} />;
 }
 
 function WorldLesson({
@@ -7757,7 +7672,7 @@ function WorldLesson({
     onNext();
   }
 
-  if (publishedStageContent && publishedStageTemplate) {
+  if (publishedStageContent && publishedStageTemplate && !["Reward", "Progress", "Mastery"].includes(step)) {
     return (
       <LearnerStageRenderer
         accentColor={meta.accent}
@@ -29917,192 +29832,6 @@ function AnimatedTrophy() {
     </Animated.View>
   );
 }
-
-const topicMenuStyles = StyleSheet.create({
-  header: {
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 28,
-    position: "relative",
-    width: 326,
-  },
-  title: {
-    color: "#1E1B4B",
-    fontSize: 22,
-    fontWeight: "900",
-    lineHeight: 25,
-    paddingHorizontal: 56,
-    textAlign: "center",
-    textTransform: "uppercase",
-  },
-  topicButton: {
-    backgroundColor: "#6B21F2",
-    borderRadius: 17,
-    minHeight: 72,
-    overflow: "visible",
-    width: 326,
-  },
-  topicButtonContainer: {
-    overflow: "visible",
-    shadowColor: "#1E1B4B",
-    shadowOffset: { height: 3, width: 0 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  topicButtonInner: {
-    alignItems: "center",
-    flexDirection: "row",
-    height: "100%",
-    justifyContent: "center",
-    overflow: "visible",
-    paddingHorizontal: 28,
-    position: "relative",
-  },
-  topicButtonInnerReverse: {
-    flexDirection: "row-reverse",
-  },
-  topicButtonLocked: {
-    backgroundColor: "rgba(107,33,242,0.58)",
-  },
-  topicButtonMastered: {
-    borderColor: "#0CC978",
-    borderWidth: 3,
-  },
-  topicEmoji: {
-    fontSize: 46,
-    left: 24,
-    position: "absolute",
-    top: -18,
-    width: 70,
-    zIndex: 2,
-  },
-  topicIcon: {
-    height: 74,
-    left: 24,
-    position: "absolute",
-    top: -22,
-    width: 58,
-    zIndex: 2,
-  },
-  topicIconBaby: {
-    height: 82,
-    left: 18,
-    position: "absolute",
-    top: -18,
-    width: 82,
-    zIndex: 2,
-  },
-  topicIconFloatRight: {
-    left: undefined,
-    right: 22,
-  },
-  topicIconFallback: {
-    borderColor: "#C4B5FD",
-    height: 82,
-    left: 18,
-    position: "absolute",
-    top: -22,
-    width: 82,
-    zIndex: 2,
-  },
-  topicIconFriend: {
-    height: 82,
-    left: 18,
-    position: "absolute",
-    top: -24,
-    width: 82,
-    zIndex: 2,
-  },
-  topicIconGeneric: {
-    height: 82,
-    left: 18,
-    position: "absolute",
-    top: -22,
-    width: 82,
-    zIndex: 2,
-  },
-  topicIconHome: {
-    height: 82,
-    left: 16,
-    position: "absolute",
-    top: -14,
-    width: 104,
-    zIndex: 2,
-  },
-  topicIconTall: {
-    height: 86,
-    left: 22,
-    position: "absolute",
-    top: -28,
-    width: 58,
-    zIndex: 2,
-  },
-  topicIconWide: {
-    height: 78,
-    left: 18,
-    position: "absolute",
-    top: -22,
-    width: 82,
-    zIndex: 2,
-  },
-  topicLabel: {
-    color: "#FFFFFF",
-    fontSize: 22,
-    fontWeight: "900",
-    lineHeight: 24,
-    paddingHorizontal: 76,
-    textAlign: "center",
-    width: "100%",
-  },
-  topicStatusBadge: {
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 999,
-    height: 24,
-    justifyContent: "center",
-    position: "absolute",
-    right: 10,
-    top: -10,
-    width: 24,
-  },
-  topicList: {
-    alignItems: "center",
-    gap: 24,
-    overflow: "visible",
-    paddingBottom: 56,
-    paddingTop: 34,
-  },
-  topicScroll: {
-    flex: 1,
-    marginTop: 6,
-    overflow: "visible",
-  },
-  wrap: {
-    alignItems: "center",
-    flex: 1,
-    justifyContent: "flex-start",
-    paddingHorizontal: 22,
-    paddingTop: 70,
-  },
-});
-
-const sharedCloseStyles = StyleSheet.create({
-  container: {
-    elevation: 12,
-    position: "absolute",
-    zIndex: 50,
-  },
-  button: {
-    alignItems: "center",
-    backgroundColor: "#2E145C",
-    borderRadius: 999,
-    elevation: 12,
-    height: 52,
-    justifyContent: "center",
-    width: 52,
-  },
-});
 
 const playStyles = StyleSheet.create({
   background: {

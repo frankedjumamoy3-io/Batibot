@@ -4,6 +4,7 @@ import type {
   QuizCategory,
   QuizScoreRecord,
 } from "@/src/data/quiz";
+import type { LessonCheckpoint } from "@/src/domain/usecases/learner-progress/lesson-checkpoints";
 
 export interface LearnerActivity {
   id: string;
@@ -80,6 +81,8 @@ export interface ActiveQuizProgressDraft {
 }
 
 export interface LearnerProgressState {
+  lessonCheckpoints: Record<string, LessonCheckpoint>;
+  resetAt: string | null;
   isTestAccount: boolean;
   unlockAllQuizzes: boolean;
   totalXp: number;

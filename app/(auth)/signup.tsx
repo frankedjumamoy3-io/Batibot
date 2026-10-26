@@ -207,6 +207,10 @@ export default function SignupScreen() {
         )}
 
         <View style={styles.mockupBottomActions}>
+          <Pressable accessibilityRole="button" disabled={loading} style={{ minHeight: 48, justifyContent: "center", alignItems: "center" }}
+            onPress={() => router.push({ pathname: APP_ROUTES.auth.online, params: { mode: "signup" } })}>
+            <Text style={styles.mockupSecondaryText}>Create an online account</Text>
+          </Pressable>
           <Pressable
             disabled={step === "details" ? !canCreate : !canStart}
             onPress={() => {

@@ -7,6 +7,9 @@ export class ApiRequestError extends Error {
 }
 
 const AI_ERROR_MESSAGES: Record<string, string> = {
+  ACCOUNT_EXISTS: "This email already has an account. Please sign in.",
+  AUTH_INVALID_CREDENTIALS: "The email or password is incorrect.",
+  AUTH_RATE_LIMITED: "Please wait a few minutes before trying again.",
   AI_NOT_CONFIGURED: "AI generation needs an OpenAI API key in the backend hosting secrets.",
   AI_CONFIGURATION_ERROR: "Check the backend OpenAI key and model access.",
   AI_QUOTA_EXCEEDED: "OpenAI quota is unavailable. Try later or check backend billing.",
