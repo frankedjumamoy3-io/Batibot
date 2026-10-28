@@ -95,6 +95,7 @@ const NAV_GROUPS: {
       { href: "/(admin)/asset-library" as Href, icon: "images-outline", label: "Asset Library" },
       { href: "/(admin)/users" as Href, icon: "people-outline", label: "User Management" },
       { href: "/(admin)/analytics" as Href, icon: "bar-chart-outline", label: "Analytics" },
+      { href: "/(admin)/reports" as Href, icon: "document-text-outline", label: "Reports" },
     ],
   },
   {

@@ -1,14 +1,5 @@
-import {
-  listGrades,
-  listTopicsByWorld,
-  listWorldsByGrade,
-} from "@/src/services/admin/batibotMetadataApi";
-import {
-  listAdminContentDrafts,
-  listPublishedContent,
-} from "@/src/services/admin/adminContentDraftService";
-import { listUserMetadataForAdmin } from "@/src/services/admin/adminUserMetadataService";
-import { listTopicDrafts } from "@/src/services/admin/adminTopicDraftService";
+import { listGrades, listTopicsByWorld, listWorldsByGrade } from "@/src/services/admin/batibotMetadataApi";
+import { getAdminInsights, type AdminInsights } from "@/src/services/admin/adminInsightsService";
 import type { UserProfile } from "@/src/types/user";
 
 export type AdminAnalytics = {
@@ -22,105 +13,36 @@ export type AdminAnalytics = {
   publishedCount: number;
   recentActivityCount: number;
   topicCount: number;
+  topicDraftCount: number | null;
   topicsByWorld: Record<string, number>;
   totalLearners: number;
   validationFailedCount: number;
   worldCount: number;
 };
 
-export async function getAdminAnalytics(
-  profile?: UserProfile | null
-): Promise<AdminAnalytics> {
-  const empty = getEmptyAnalytics();
-
-  try {
-    const [users, drafts, published, topicDrafts] = await Promise.all([
-      listUserMetadataForAdmin(profile),
-      listAdminContentDrafts(),
-      listPublishedContent(),
-      listTopicDrafts({}, profile),
-    ]);
-    const learnersByGrade: Record<string, number> = {};
-
-    users.forEach((metadata) => {
-      if (metadata.role === "administrator") {
-        return;
-      }
-
-      const grade = metadata.gradeLevel ?? "Unknown";
-      learnersByGrade[grade] = (learnersByGrade[grade] ?? 0) + 1;
-    });
-
-    return {
-      activeLearners: users.filter(
-        (metadata) => metadata.role === "learner" && Boolean(metadata.lastActiveAt)
-      ).length,
-      approvedCount:
-        drafts.filter((draft) => draft.status === "approved").length +
-        topicDrafts.filter((draft) => draft.status === "approved").length,
-      aiDraftQueueCount: drafts.filter((draft) => draft.status === "ai_generated").length,
-      draftCount: drafts.length + topicDrafts.filter((draft) => draft.status !== "published").length,
-      gradeLevelCount: getGradeLevelCount(),
-      learnersByGrade,
-      pendingReviewCount: drafts.filter((draft) =>
-        ["ai_generated", "needs_review", "draft"].includes(draft.status)
-      ).length + topicDrafts.filter((draft) => draft.status === "inReview").length,
-      publishedCount: published.length + topicDrafts.filter((draft) => draft.status === "published").length,
-      recentActivityCount: drafts.length + published.length + topicDrafts.length,
-      topicCount: getTopicCount(),
-      topicsByWorld: getTopicsByWorld(),
-      totalLearners: Object.values(learnersByGrade).reduce((sum, count) => sum + count, 0),
-      validationFailedCount: drafts.filter((draft) => draft.status === "validation_failed").length,
-      worldCount: getWorldCount(),
-    };
-  } catch {
-    return empty;
-  }
-}
-
-function getEmptyAnalytics(): AdminAnalytics {
+export function summarizeAdminInsights(insights: AdminInsights): AdminAnalytics {
+  const statuses = insights.content.contentStatus;
+  const quizzes = insights.content.quizStatus;
+  const worlds = listGrades().flatMap(grade => listWorldsByGrade(grade.id));
   return {
-    activeLearners: 0,
-    approvedCount: 0,
-    aiDraftQueueCount: 0,
-    draftCount: 0,
-    gradeLevelCount: getGradeLevelCount(),
-    learnersByGrade: {},
-    pendingReviewCount: 0,
-    publishedCount: 0,
-    recentActivityCount: 0,
-    topicCount: getTopicCount(),
-    topicsByWorld: getTopicsByWorld(),
-    totalLearners: 0,
-    validationFailedCount: 0,
-    worldCount: getWorldCount(),
+    activeLearners: insights.learners.active30Days,
+    approvedCount: statuses.approved ?? 0,
+    aiDraftQueueCount: statuses.ai_generated ?? 0,
+    draftCount: Object.entries(statuses).reduce((sum, [status, count]) => sum + (status === "published" ? 0 : count), 0) + (quizzes.draft ?? 0),
+    gradeLevelCount: listGrades().length,
+    learnersByGrade: Object.fromEntries(Object.entries(insights.learners.byGrade).map(([grade, value]) => [grade, value.learners])),
+    pendingReviewCount: (statuses.needs_review ?? 0) + (statuses.ai_generated ?? 0),
+    publishedCount: (statuses.published ?? 0) + (quizzes.published ?? 0),
+    recentActivityCount: insights.recentActivity.length,
+    topicCount: worlds.reduce((sum, world) => sum + listTopicsByWorld(world.gradeLevel, world.id).length, 0),
+    topicDraftCount: insights.topicDrafts?.length ?? null,
+    topicsByWorld: Object.fromEntries(worlds.map(world => [`${world.gradeLevel}:${world.title}`, listTopicsByWorld(world.gradeLevel, world.id).length])),
+    totalLearners: insights.learners.total,
+    validationFailedCount: statuses.validation_failed ?? 0,
+    worldCount: worlds.length,
   };
 }
 
-function getGradeLevelCount() {
-  return listGrades().length;
-}
-
-function getTopicCount() {
-  return getAllWorlds().reduce(
-    (sum, world) => sum + listTopicsByWorld(world.gradeLevel, world.id).length,
-    0
-  );
-}
-
-function getTopicsByWorld() {
-  return Object.fromEntries(
-    getAllWorlds().map((world) => [
-      `${world.gradeLevel}:${world.title}`,
-      listTopicsByWorld(world.gradeLevel, world.id).length,
-    ])
-  );
-}
-
-function getWorldCount() {
-  return getAllWorlds().length;
-}
-
-function getAllWorlds() {
-  return listGrades().flatMap((grade) => listWorldsByGrade(grade.id));
+export async function getAdminAnalytics(profile?: UserProfile | null): Promise<AdminAnalytics> {
+  return summarizeAdminInsights(await getAdminInsights(profile));
 }

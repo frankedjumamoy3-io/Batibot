@@ -13,6 +13,7 @@ const mocks = {
   'expo-secure-store': secure, 'react-native': { Platform: { OS: 'android' } },
   '@/src/config/firebase': { db: {} }, 'firebase/firestore': {},
   '@/src/data/quiz/study-requirements': { withQuizContentStudyRequirements: quiz => quiz },
+  '@/src/services/admin/adminTopicDraftService': { listTopicDrafts: async () => [{ gradeLevel: 'Grade 1', worldId: 'family-world', status: 'published' }] },
 };
 Module._load = function(request, ...args) { return mocks[request] ?? originalLoad.call(this, request, ...args); };
 Module._resolveFilename = function(request, parent, ...args) { return originalResolve.call(this, request.startsWith('@/') ? path.join(root, request.slice(2)) : request, parent, ...args); };
@@ -121,4 +122,35 @@ test('published quiz subscription maps valid content and falls back without surf
   await new Promise(resolve => setImmediate(resolve));
   assert.deepEqual(offline.at(-1), []);
   stopOffline();
+});
+
+test('admin insights power grade-filtered reports and CSV export', async () => {
+  const { getAdminInsights } = require('../src/services/admin/adminInsightsService');
+  const { buildLiveAdminReport, reportToCsv } = require('../src/services/admin/liveAdminReports');
+  const insights = {
+    generatedAt: '2026-10-29T00:00:00.000Z',
+    learners: { total: 2, active30Days: 1, completedLessons: 3, masteredTopics: 1, savedQuizAttempts: 4, averageLatestScore: 80, byGrade: {} },
+    content: { quizStatus: { published: 1, draft: 1 }, contentStatus: { published: 1 }, worldCoverage: [] },
+    learnerRows: [
+      { id: 'one', displayName: 'Ana, Jr.', gradeLevel: 'Grade 1', totalXp: 20, completedLessons: 2, completedTopics: 1, savedQuizAttempts: 3, averageLatestScore: 80, lastActiveAt: '2026-10-29T00:00:00.000Z' },
+      { id: 'two', displayName: 'Ben', gradeLevel: 'Grade 2', totalXp: 10, completedLessons: 1, completedTopics: 0, savedQuizAttempts: 1, averageLatestScore: 60, lastActiveAt: null },
+    ],
+    quizPerformance: [], recentActivity: [],
+  };
+  global.fetch = async url => {
+    if (url.endsWith('/auth/login')) return ok(session);
+    if (url.endsWith('/admin/insights')) return ok(insights);
+    if (url.endsWith('/auth/logout')) return ok({});
+    throw new Error(`Unexpected request: ${url}`);
+  };
+  await sessions.loginApi('admin@example.test', 'test-only-password');
+  const data = await getAdminInsights({ role: 'admin' });
+  const report = buildLiveAdminReport(data, 'learner-progress', 'Grade 1');
+  assert.equal(report.tableRows.length, 1);
+  assert.equal(report.summaryCards[0].value, '1');
+  assert.ok(reportToCsv(report).includes('"Ana, Jr."'));
+  assert.ok(reportToCsv({ tableHeaders: ['Name'], tableRows: [['=1+1']] }).includes('"\'=1+1"'));
+  const coverage = buildLiveAdminReport(data, 'curriculum-coverage', 'Grade 1');
+  assert.equal(coverage.tableRows[0][6], '1');
+  await sessions.logoutApi();
 });

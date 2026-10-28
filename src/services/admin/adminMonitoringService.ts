@@ -22,6 +22,7 @@ export interface BackendMonitoringData {
     totalAttempts: number;
     totalQuizzes: number;
   };
+  statisticsStatus: string;
   status: string;
   timestamp: string;
   uptimeSeconds: number;
@@ -64,7 +65,7 @@ export async function checkSystemMonitoringHealth(): Promise<ClientMonitoringHea
       backendLive: true,
       checkTimestamp: new Date().toISOString(),
       data,
-      errorMessage: null,
+      errorMessage: data.status === "healthy" ? null : `Backend health is ${data.status}; database: ${data.database.status}, statistics: ${data.statisticsStatus ?? "unavailable"}.`,
       latencyMs,
     };
   } catch (error) {

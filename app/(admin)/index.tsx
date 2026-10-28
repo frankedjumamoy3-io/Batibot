@@ -29,6 +29,7 @@ const emptyAnalytics: AdminAnalytics = {
   publishedCount: 0,
   recentActivityCount: 0,
   topicCount: 0,
+  topicDraftCount: null,
   topicsByWorld: {},
   totalLearners: 0,
   validationFailedCount: 0,
@@ -40,6 +41,7 @@ export default function AdminDashboardScreen() {
   const { profile } = useCurrentUserProfile();
   const [analytics, setAnalytics] = useState<AdminAnalytics>(emptyAnalytics);
   const [loading, setLoading] = useState(true);
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -55,6 +57,12 @@ export default function AdminDashboardScreen() {
     getAdminAnalytics(profile).then((nextAnalytics) => {
       if (mounted) {
         setAnalytics(nextAnalytics);
+        setAnalyticsError(null);
+        setLoading(false);
+      }
+    }).catch((error: unknown) => {
+      if (mounted) {
+        setAnalyticsError(error instanceof Error ? error.message : "Could not load dashboard metrics.");
         setLoading(false);
       }
     });
@@ -65,11 +73,24 @@ export default function AdminDashboardScreen() {
   }, [profile]);
 
   const topicsByStatus = {
-    Drafts: analytics.draftCount,
+    Unpublished: analytics.draftCount,
     Published: analytics.publishedCount,
     "Pending Review": analytics.pendingReviewCount,
     "Validation Failed": analytics.validationFailedCount,
   };
+
+  async function refreshMetrics() {
+    if (!profile) return;
+    setLoading(true);
+    try {
+      setAnalytics(await getAdminAnalytics(profile));
+      setAnalyticsError(null);
+    } catch (error) {
+      setAnalyticsError(error instanceof Error ? error.message : "Could not load dashboard metrics.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <AdminShell
@@ -103,15 +124,18 @@ export default function AdminDashboardScreen() {
         <ControlledQuizConsole embedded={true} />
       ) : (
         <View style={{ gap: 16 }}>
+          {analyticsError ? <Text accessibilityRole="alert">Metrics unavailable: {analyticsError}</Text> : null}
+          <AdminButton label={loading ? "Loading metrics..." : "Refresh metrics"} disabled={loading} onPress={() => { void refreshMetrics(); }} />
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
-            <AdminMetricCard label="Total Learners" value={loading ? "—" : analytics.totalLearners} />
-            <AdminMetricCard label="Grade Levels" value={loading ? "—" : analytics.gradeLevelCount} />
-            <AdminMetricCard label="Worlds" value={loading ? "—" : analytics.worldCount} />
-            <AdminMetricCard label="Topics" value={loading ? "—" : analytics.topicCount} />
-            <AdminMetricCard label="Draft Content" tone="warning" value={loading ? "—" : analytics.draftCount} />
-            <AdminMetricCard label="Pending Review" tone="warning" value={loading ? "—" : analytics.pendingReviewCount} />
-            <AdminMetricCard label="Approved Content" tone="good" value={loading ? "—" : analytics.approvedCount} />
-            <AdminMetricCard label="Published Content" tone="good" value={loading ? "—" : analytics.publishedCount} />
+            <AdminMetricCard label="Total Learners" value={loading || analyticsError ? "—" : analytics.totalLearners} />
+            <AdminMetricCard label="Grade Levels" value={loading || analyticsError ? "—" : analytics.gradeLevelCount} />
+            <AdminMetricCard label="Worlds" value={loading || analyticsError ? "—" : analytics.worldCount} />
+            <AdminMetricCard label="Topics" value={loading || analyticsError ? "—" : analytics.topicCount} />
+            <AdminMetricCard label="Topic Drafts (Firestore/local)" value={loading || analyticsError ? "—" : analytics.topicDraftCount ?? "Unavailable"} />
+            <AdminMetricCard label="Unpublished Items" tone="warning" value={loading || analyticsError ? "—" : analytics.draftCount} />
+            <AdminMetricCard label="Pending Review" tone="warning" value={loading || analyticsError ? "—" : analytics.pendingReviewCount} />
+            <AdminMetricCard label="Approved Content" tone="good" value={loading || analyticsError ? "—" : analytics.approvedCount} />
+            <AdminMetricCard label="Backend Published Items" tone="good" value={loading || analyticsError ? "—" : analytics.publishedCount} />
           </View>
 
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 16 }}>
@@ -139,6 +163,8 @@ export default function AdminDashboardScreen() {
               action="Open Analytics"
               href="/(admin)/analytics"
             />
+            <ModuleCard title="Reports" subtitle="View learner progress, quiz performance, content coverage, and publishing activity."
+              action="Open Reports" href="/(admin)/reports" />
           </View>
 
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 16 }}>
@@ -146,17 +172,17 @@ export default function AdminDashboardScreen() {
               <AdminBarChart title="Learners by Grade" data={analytics.learnersByGrade} />
             </View>
             <View style={{ flex: 1, minWidth: 280 }}>
-              <AdminBarChart title="Topics by Status" data={topicsByStatus} />
+              <AdminBarChart title="Admin Content by Status" data={topicsByStatus} />
             </View>
           </View>
 
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 16 }}>
             <View style={{ flex: 1, minWidth: 280 }}>
-              <AdminBarChart title="Drafts by World" data={analytics.topicsByWorld} />
+              <AdminBarChart title="Curriculum Topics by World" data={analytics.topicsByWorld} />
             </View>
             <View style={{ flex: 1, minWidth: 280 }}>
               <AdminBarChart
-                title="Recent Publish Activity"
+                title="Published and Review Counts"
                 data={{ Published: analytics.publishedCount, "Ready to Publish": analytics.pendingReviewCount }}
                 emptyLabel="Publish activity will appear after the first approved content item."
               />

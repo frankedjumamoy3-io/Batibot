@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useCurrentUserProfile } from "@/src/presentation/hooks/use-current-user-profile";
 
 import {
   AdminBarChart,
@@ -11,21 +12,15 @@ import {
   AdminStatusBadge,
   adminStyles,
 } from "@/src/components/admin/AdminShell";
-import { useCurrentUserProfile } from "@/src/presentation/hooks/use-current-user-profile";
 import {
-  getAdminAnalytics,
+  summarizeAdminInsights,
   type AdminAnalytics,
 } from "@/src/services/admin/adminAnalyticsService";
+import { getAdminInsights, type AdminInsights } from "@/src/services/admin/adminInsightsService";
 import {
   checkSystemMonitoringHealth,
   type ClientMonitoringHealth,
 } from "@/src/services/admin/adminMonitoringService";
-import {
-  getRecentTelemetryEvents,
-  getTelemetrySummary,
-  type TelemetryEvent,
-  type TelemetrySummary,
-} from "@/src/services/analytics/telemetryService";
 
 const emptyAnalytics: AdminAnalytics = {
   activeLearners: 0,
@@ -38,6 +33,7 @@ const emptyAnalytics: AdminAnalytics = {
   publishedCount: 0,
   recentActivityCount: 0,
   topicCount: 0,
+  topicDraftCount: null,
   topicsByWorld: {},
   totalLearners: 0,
   validationFailedCount: 0,
@@ -54,33 +50,28 @@ const initialMonitoring: ClientMonitoringHealth = {
   latencyMs: 0,
 };
 
-const initialTelemetry: TelemetrySummary = {
-  averageScore: 100,
-  completedLessons: 0,
-  errorCount: 0,
-  lastActive: null,
-  quizAttempts: 0,
-  totalEvents: 0,
-};
-
 export default function AdminAnalyticsScreen() {
   const { profile } = useCurrentUserProfile();
   const [activeTab, setActiveTab] = useState<"learning" | "system">("learning");
   const [analytics, setAnalytics] = useState<AdminAnalytics>(emptyAnalytics);
+  const [insights, setInsights] = useState<AdminInsights | null>(null);
   const [monitoring, setMonitoring] = useState<ClientMonitoringHealth>(initialMonitoring);
-  const [telemetry, setTelemetry] = useState<TelemetrySummary>(initialTelemetry);
-  const [recentEvents, setRecentEvents] = useState<TelemetryEvent[]>([]);
+  const [dataError, setDataError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(false);
 
   const loadData = useCallback(async () => {
-    const [nextAnalytics, nextTelemetry, events] = await Promise.all([
-      getAdminAnalytics(profile),
-      getTelemetrySummary(),
-      getRecentTelemetryEvents(15),
-    ]);
-    setAnalytics(nextAnalytics);
-    setTelemetry(nextTelemetry);
-    setRecentEvents(events);
+    setLoading(true);
+    setDataError(null);
+    try {
+      const next = await getAdminInsights(profile);
+      setInsights(next);
+      setAnalytics(summarizeAdminInsights(next));
+    } catch (error) {
+      setDataError(error instanceof Error ? error.message : "Could not load analytics.");
+    } finally {
+      setLoading(false);
+    }
   }, [profile]);
 
   const pingMonitoring = useCallback(async () => {
@@ -96,6 +87,8 @@ export default function AdminAnalyticsScreen() {
   useEffect(() => {
     void loadData();
     void pingMonitoring();
+    const timer = setInterval(() => { void pingMonitoring(); }, 60_000);
+    return () => clearInterval(timer);
   }, [loadData, pingMonitoring]);
 
   function formatBytes(bytes?: number) {
@@ -114,8 +107,11 @@ export default function AdminAnalyticsScreen() {
   return (
     <AdminShell
       title="Analytics & Monitoring"
-      subtitle="Comprehensive learner telemetry, curriculum coverage, and live system infrastructure monitoring."
+      subtitle="Saved learner progress, published content, and live backend health."
     >
+      <AdminSectionHeader title="Current data" subtitle={insights ? `Updated ${new Date(insights.generatedAt).toLocaleString()} · Active means saved progress in the past 30 days.` : "Load saved backend records to view analytics."}
+        action={<AdminButton label={loading ? "Refreshing..." : "Refresh data"} disabled={loading} onPress={() => { void loadData(); }} />} />
+      {dataError ? <Text style={monStyles.errorText}>Analytics unavailable: {dataError}</Text> : null}
       {/* Top Segmented Tabs */}
       <View style={tabStyles.container}>
         <Pressable
@@ -142,10 +138,11 @@ export default function AdminAnalyticsScreen() {
       {activeTab === "learning" ? (
         <>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
-            <AdminMetricCard label="Active Learners" tone="good" value={analytics.activeLearners} />
-            <AdminMetricCard label="Draft Content" tone="warning" value={analytics.draftCount} />
-            <AdminMetricCard label="Published Content" tone="good" value={analytics.publishedCount} />
-            <AdminMetricCard label="Completed Lessons" tone="good" value={telemetry.completedLessons} />
+            <AdminMetricCard label="Active Learners (30 days)" tone="good" value={insights ? analytics.activeLearners : "—"} />
+            <AdminMetricCard label="Unpublished Items" tone="warning" value={insights ? analytics.draftCount : "—"} />
+            <AdminMetricCard label="Backend Published Items" tone="good" value={insights ? analytics.publishedCount : "—"} />
+            <AdminMetricCard label="Topic Drafts (Firestore/local)" value={insights ? analytics.topicDraftCount ?? "Unavailable" : "—"} />
+            <AdminMetricCard label="Completed Lessons" tone="good" value={insights ? insights.learners.completedLessons : "—"} />
           </View>
 
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 16 }}>
@@ -153,25 +150,19 @@ export default function AdminAnalyticsScreen() {
               <AdminBarChart title="Learners by Grade" data={analytics.learnersByGrade} />
             </View>
             <View style={{ flex: 1, minWidth: 300 }}>
-              <AdminBarChart title="Topics by World" data={analytics.topicsByWorld} />
+              <AdminBarChart title="Published Stages by World" data={Object.fromEntries((insights?.content.worldCoverage ?? []).map(row => [`${row.gradeLevel}: ${row.worldId}`, row.publishedStages]))} />
             </View>
           </View>
 
           <AdminCard>
             <AdminSectionHeader
-              title="Learner Telemetry Summary"
-              subtitle="Device-local learning session tracking and quiz metrics."
-              action={
-                <AdminStatusBadge
-                  label={telemetry.errorCount === 0 ? "All Good" : `${telemetry.errorCount} Issues`}
-                  tone={telemetry.errorCount === 0 ? "good" : "warning"}
-                />
-              }
+              title="Saved Learning Summary"
+              subtitle="Aggregated from authenticated learner progress saved to PostgreSQL. Scores are the latest saved score per quiz and learner."
             />
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 8 }}>
-              <AdminMetricCard label="Quiz Attempts" value={telemetry.quizAttempts} />
-              <AdminMetricCard label="Avg Score" tone="good" value={`${telemetry.averageScore}%`} />
-              <AdminMetricCard label="Logged Events" value={telemetry.totalEvents} />
+              <AdminMetricCard label="Saved Quiz Attempts" value={insights?.learners.savedQuizAttempts ?? "—"} />
+              <AdminMetricCard label="Avg Latest Score" tone="good" value={insights ? insights.learners.averageLatestScore === null ? "No scores" : `${insights.learners.averageLatestScore}%` : "—"} />
+              <AdminMetricCard label="Mastered Topics" value={insights?.learners.masteredTopics ?? "—"} />
               <AdminMetricCard
                 label="Validation Failed"
                 tone={analytics.validationFailedCount > 0 ? "danger" : "default"}
@@ -185,13 +176,13 @@ export default function AdminAnalyticsScreen() {
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
             <AdminMetricCard
               label="Backend Status"
-              tone={monitoring.backendLive ? "good" : "danger"}
-              value={monitoring.backendLive ? "Live (Connected)" : "Offline / Sleeping"}
+              tone={monitoring.data?.status === "healthy" ? "good" : monitoring.backendLive ? "warning" : "danger"}
+              value={monitoring.data?.status === "healthy" ? "Healthy" : monitoring.backendLive ? "Degraded" : "Unavailable"}
             />
             <AdminMetricCard
               label="Server Latency"
-              tone={monitoring.latencyMs < 300 ? "good" : monitoring.latencyMs < 1000 ? "warning" : "danger"}
-              value={`${monitoring.latencyMs} ms`}
+              tone={!monitoring.backendLive ? "default" : monitoring.latencyMs < 300 ? "good" : monitoring.latencyMs < 1000 ? "warning" : "danger"}
+              value={monitoring.backendLive ? `${monitoring.latencyMs} ms` : "—"}
             />
             <AdminMetricCard
               label="Database"
@@ -200,7 +191,7 @@ export default function AdminAnalyticsScreen() {
             />
             <AdminMetricCard
               label="Server Uptime"
-              value={formatUptime(monitoring.data?.uptimeSeconds)}
+              value={monitoring.data ? formatUptime(monitoring.data.uptimeSeconds) : "—"}
             />
           </View>
 
@@ -224,17 +215,21 @@ export default function AdminAnalyticsScreen() {
                 </View>
                 <View style={monStyles.line}>
                   <Text style={monStyles.label}>Environment:</Text>
-                  <Text style={monStyles.value}>{monitoring.data?.environment ?? "Render Production"}</Text>
+                  <Text style={monStyles.value}>{monitoring.data?.environment ?? "Unavailable"}</Text>
                 </View>
                 <View style={monStyles.line}>
                   <Text style={monStyles.label}>Node Version:</Text>
-                  <Text style={monStyles.value}>{monitoring.data?.nodeVersion ?? "Node.js 22"}</Text>
+                  <Text style={monStyles.value}>{monitoring.data?.nodeVersion ?? "Unavailable"}</Text>
                 </View>
                 <View style={monStyles.line}>
                   <Text style={monStyles.label}>DB Ping Latency:</Text>
                   <Text style={monStyles.value}>
                     {monitoring.data?.database?.latencyMs ? `${monitoring.data.database.latencyMs} ms` : "Available when live"}
                   </Text>
+                </View>
+                <View style={monStyles.line}>
+                  <Text style={monStyles.label}>Statistics Query:</Text>
+                  <Text style={monStyles.value}>{monitoring.data?.statisticsStatus ?? "Unavailable"}</Text>
                 </View>
                 {monitoring.errorMessage ? (
                   <Text style={monStyles.errorText}>
@@ -272,24 +267,24 @@ export default function AdminAnalyticsScreen() {
 
           <AdminCard>
             <AdminSectionHeader
-              title="Recent Client Events Telemetry"
-              subtitle="Latest client session events logged on this device."
+              title="Recent Admin Activity"
+              subtitle="Latest saved quiz and content actions on the backend."
             />
-            {recentEvents.length === 0 ? (
-              <Text style={adminStyles.mutedText}>No telemetry events logged yet in this session.</Text>
+            {(insights?.recentActivity.length ?? 0) === 0 ? (
+              <Text style={adminStyles.mutedText}>No saved admin activity is available.</Text>
             ) : (
               <View style={{ gap: 8, marginTop: 8 }}>
-                {recentEvents.map((event) => (
-                  <View key={event.id} style={monStyles.eventRow}>
+                {insights?.recentActivity.slice(0, 15).map((event, index) => (
+                  <View key={`${event.timestamp}-${index}`} style={monStyles.eventRow}>
                     <AdminStatusBadge
-                      label={event.type}
-                      tone={event.type.includes("fail") || event.type.includes("error") ? "danger" : "good"}
+                      label={event.action}
+                      tone={event.action.includes("failed") || event.action.includes("rejected") ? "danger" : "good"}
                     />
                     <Text style={monStyles.eventTime}>
-                      {new Date(event.timestamp).toLocaleTimeString()}
+                      {event.timestamp ? new Date(event.timestamp).toLocaleString() : "—"}
                     </Text>
                     <Text numberOfLines={1} style={monStyles.eventData}>
-                      {event.data ? JSON.stringify(event.data) : "Standard lifecycle event"}
+                      {event.entityType}
                     </Text>
                   </View>
                 ))}

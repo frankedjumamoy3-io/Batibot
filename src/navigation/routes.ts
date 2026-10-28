@@ -7,6 +7,7 @@ export const APP_ROUTES = {
   },
   admin: {
     analytics: "/(admin)/analytics",
+    reports: "/(admin)/reports",
     assetLibrary: "/(admin)/asset-library",
     contentCuration: "/(admin)/content-curation",
     createDraft: "/(admin)/create-draft",
